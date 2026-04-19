@@ -12,6 +12,7 @@ export class RoomRenderer {
     this.spriteLoader = null;
     this.hoveredItem = null;
     this.effectLayers = [];
+    this.editModeController = null;
   }
 
   setSpriteLoader(loader) {
@@ -106,13 +107,15 @@ export class RoomRenderer {
       this.drawWindow(item);
     }
 
+    const inEditMode = this.editModeController?.isEditMode;
+
     if (this.spriteLoader) {
       const frame = this.spriteLoader.getFrame(item.type, item.variant || 'default');
       if (frame) {
         frame.draw(this.ctx, item.x, item.y);
-        if (this.hoveredItem === item && item.interactive) {
-          this.drawHoverGlow(item);
-        }
+        if (inEditMode) this.drawEditOutline(item);
+        if (this.editModeController?.selectedId === item.id) this.drawSelectionHighlight(item);
+        else if (this.hoveredItem === item) this.drawHoverGlow(item);
         return;
       }
     }
@@ -123,9 +126,9 @@ export class RoomRenderer {
       this.ctx.fillStyle = item.color || '#A0522D';
       this.ctx.fillRect(item.x, item.y, DEFAULT_HITBOX_SIZE.width, DEFAULT_HITBOX_SIZE.height);
     }
-    if (this.hoveredItem === item && item.interactive) {
-      this.drawHoverGlow(item);
-    }
+    if (inEditMode) this.drawEditOutline(item);
+    if (this.editModeController?.selectedId === item.id) this.drawSelectionHighlight(item);
+    else if (this.hoveredItem === item) this.drawHoverGlow(item);
   }
 
   drawHoverGlow(item) {
@@ -203,8 +206,9 @@ export class RoomRenderer {
   }
 
   handleMouseMove(canvasX, canvasY) {
-    const hit = this.hitTest(canvasX, canvasY);
-    const newHovered = hit?.interactive ? hit : null;
+    const inEditMode = this.editModeController?.isEditMode;
+    const hit = inEditMode ? this.hitTestAll(canvasX, canvasY) : this.hitTest(canvasX, canvasY);
+    const newHovered = inEditMode ? hit : (hit?.interactive ? hit : null);
     if (newHovered !== this.hoveredItem) {
       this.hoveredItem = newHovered;
       this.canvas.style.cursor = newHovered ? 'pointer' : 'default';
