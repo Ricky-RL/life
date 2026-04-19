@@ -77,9 +77,14 @@ export class ChatOverlay {
     const text = this.inputEl.value.trim();
     if (!text) return;
     this.inputEl.value = '';
-    const msg = await this.service.sendText(text);
-    this.appendMessageEl(msg);
-    this.scrollToBottom();
+    try {
+      const msg = await this.service.sendText(text);
+      this.appendMessageEl(msg);
+      this.scrollToBottom();
+    } catch (err) {
+      console.error('Failed to send message:', err);
+      this.inputEl.value = text;
+    }
   }
 
   onIncomingMessage(message) {
