@@ -5,6 +5,8 @@ export class TVOverlay {
     this.onJoinWatch = onJoinWatch;
     this.onToggleTracking = onToggleTracking;
     this.element = null;
+    /** @type {((partnerActivity: object) => void) | null} */
+    this.onJoin = null;
   }
 
   show() {
@@ -99,5 +101,23 @@ export class TVOverlay {
       this.element = null;
     }
     this.container.classList.add('hidden');
+  }
+
+  /**
+   * Creates and returns a "Join & Watch Together" button when the partner is
+   * on YouTube, or null otherwise.
+   * @param {{ isYouTube: boolean, url: string, title: string } | null} partnerActivity
+   * @returns {HTMLButtonElement | null}
+   */
+  renderJoinButton(partnerActivity) {
+    if (!partnerActivity || !partnerActivity.isYouTube) return null;
+
+    const btn = document.createElement('button');
+    btn.className = 'tv-overlay-join';
+    btn.textContent = 'Join & Watch Together';
+    btn.addEventListener('click', () => {
+      if (this.onJoin) this.onJoin(partnerActivity);
+    });
+    return btn;
   }
 }
