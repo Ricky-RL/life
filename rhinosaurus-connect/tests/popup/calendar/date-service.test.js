@@ -3,55 +3,73 @@ import { DateService } from '../../../popup/calendar/date-service.js';
 
 describe('DateService', () => {
   let service;
-  let mockSupabase;
+  let storage;
 
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2025-06-15T12:00:00Z'));
-    mockSupabase = {
-      from: vi.fn(() => ({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            order: vi.fn(() => Promise.resolve({ data: [], error: null })),
-          })),
-        })),
-        insert: vi.fn(() => ({
-          select: vi.fn(() => ({
-            single: vi.fn(() => Promise.resolve({
-              data: { id: 'td-1', label: 'Test', date: '2025-12-25', is_recurring: false },
-              error: null,
-            })),
-          })),
-        })),
-        update: vi.fn(() => ({
-          eq: vi.fn(() => Promise.resolve({ error: null })),
-        })),
-        delete: vi.fn(() => ({
-          eq: vi.fn(() => Promise.resolve({ error: null })),
-        })),
-      })),
+
+    storage = {};
+    globalThis.chrome = {
+      storage: {
+        local: {
+          get: vi.fn((key) => {
+            const k = typeof key === 'string' ? key : key[0];
+            return Promise.resolve({ [k]: storage[k] });
+          }),
+          set: vi.fn((obj) => {
+            Object.assign(storage, obj);
+            return Promise.resolve();
+          }),
+        },
+      },
     };
-    service = new DateService(mockSupabase, 'pair-1', 'user-1');
+    vi.spyOn(crypto, 'randomUUID').mockReturnValue('test-uuid-1');
+
+    service = new DateService();
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    delete globalThis.chrome;
   });
 
-  it('fetches tracked dates', async () => {
+  it('fetches tracked dates from chrome.storage.local', async () => {
     const dates = await service.fetchDates();
     expect(dates).toEqual([]);
-    expect(mockSupabase.from).toHaveBeenCalledWith('tracked_dates');
+    expect(chrome.storage.local.get).toHaveBeenCalledWith('tracked_dates');
   });
 
-  it('adds a tracked date', async () => {
+  it('returns stored dates', async () => {
+    storage.tracked_dates = [{ id: '1', label: 'Test', date: '2025-12-25' }];
+    const dates = await service.fetchDates();
+    expect(dates).toHaveLength(1);
+    expect(dates[0].label).toBe('Test');
+  });
+
+  it('adds a tracked date to storage', async () => {
     const result = await service.addDate('Christmas', '2025-12-25', true, false);
-    expect(result.label).toBe('Test');
+    expect(result.label).toBe('Christmas');
+    expect(result.id).toBe('test-uuid-1');
+    expect(chrome.storage.local.set).toHaveBeenCalled();
+    expect(storage.tracked_dates).toHaveLength(1);
+    expect(storage.tracked_dates[0].label).toBe('Christmas');
   });
 
-  it('deletes a tracked date', async () => {
+  it('deletes a tracked date from storage', async () => {
+    storage.tracked_dates = [
+      { id: 'td-1', label: 'Test', date: '2025-12-25' },
+      { id: 'td-2', label: 'Other', date: '2025-01-01' },
+    ];
     await service.deleteDate('td-1');
-    expect(mockSupabase.from).toHaveBeenCalledWith('tracked_dates');
+    expect(storage.tracked_dates).toHaveLength(1);
+    expect(storage.tracked_dates[0].id).toBe('td-2');
+  });
+
+  it('updates a tracked date in storage', async () => {
+    storage.tracked_dates = [{ id: 'td-1', label: 'Old', date: '2025-12-25' }];
+    await service.updateDate('td-1', { label: 'New' });
+    expect(storage.tracked_dates[0].label).toBe('New');
   });
 
   it('calculates anniversary days', () => {
