@@ -1,5 +1,8 @@
 import { RoomRenderer } from './room/room-renderer.js';
 import { RoomState } from './room/room-state.js';
+import { DateService } from './calendar/date-service.js';
+import { CalendarOverlay } from './calendar/calendar-overlay.js';
+import { CalendarGlow } from './room/calendar-glow.js';
 
 const screens = {
   login: document.getElementById('login-screen'),
@@ -14,10 +17,35 @@ function showScreen(name) {
   screens[name].classList.remove('hidden');
 }
 
+let calendarOverlay = null;
+let dateService = null;
+const calendarGlow = new CalendarGlow();
+
+async function setupCalendar(supabase, pairId, userId, anniversaryDate) {
+  dateService = new DateService(supabase, pairId, userId);
+  const overlayContainer = document.getElementById('overlay-container');
+  calendarOverlay = new CalendarOverlay(overlayContainer, dateService, anniversaryDate);
+
+  const dates = await dateService.fetchDates();
+  const milestones = [
+    ...dateService.checkAnniversaryMilestones(anniversaryDate),
+    ...dateService.checkDateMilestones(dates),
+  ];
+  calendarGlow.setMilestones(milestones);
+}
+
 async function init() {
   const canvas = document.getElementById('room-canvas');
   const roomState = new RoomState();
   const renderer = new RoomRenderer(canvas, roomState);
+
+  renderer.addEffect({
+    draw(ctx) {
+      const cal = roomState.furniture.find(f => f.type === 'calendar');
+      if (cal) calendarGlow.draw(ctx, cal.x, cal.y, performance.now());
+      if (calendarGlow.isActive) renderer.markDirty();
+    },
+  });
 
   function canvasCoords(e) {
     const rect = canvas.getBoundingClientRect();
@@ -67,6 +95,10 @@ async function init() {
 }
 
 function handleInteraction(item) {
+  if (item.interaction === 'dates' && calendarOverlay) {
+    calendarOverlay.open();
+    return;
+  }
   console.log('Interaction:', item.interaction, item.id);
 }
 
