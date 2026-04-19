@@ -230,6 +230,37 @@ describe('TabTracker', () => {
 
       expect(ytCallback).toHaveBeenCalledWith('left', null);
     });
+
+    it('triggers YouTube leave when switching to a skipped tab', () => {
+      tracker.trackingEnabled = true;
+      tracker.wasOnYouTube = true;
+      const ytCallback = vi.fn();
+      tracker.onYouTubeChange = ytCallback;
+
+      tracker.handleTabChange({
+        incognito: false,
+        url: 'chrome://settings',
+        title: 'Settings',
+      });
+
+      expect(ytCallback).toHaveBeenCalledWith('left', null);
+      expect(tracker.wasOnYouTube).toBe(false);
+    });
+
+    it('does not fire YouTube leave for skipped tabs when not on YouTube', () => {
+      tracker.trackingEnabled = true;
+      tracker.wasOnYouTube = false;
+      const ytCallback = vi.fn();
+      tracker.onYouTubeChange = ytCallback;
+
+      tracker.handleTabChange({
+        incognito: false,
+        url: 'chrome://settings',
+        title: 'Settings',
+      });
+
+      expect(ytCallback).not.toHaveBeenCalled();
+    });
   });
 
   describe('checkIdle', () => {

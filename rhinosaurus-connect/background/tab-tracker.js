@@ -91,7 +91,14 @@ export class TabTracker {
   }
 
   handleTabChange(tab) {
-    if (this.shouldSkipTab(tab)) return;
+    if (this.shouldSkipTab(tab)) {
+      if (this.wasOnYouTube) {
+        this.wasOnYouTube = false;
+        chrome.storage.local.set({ wasOnYouTube: false });
+        if (this.onYouTubeChange) this.onYouTubeChange('left', null);
+      }
+      return;
+    }
 
     let hostname;
     try {
