@@ -15,13 +15,16 @@ console.log('[SW] Service worker loaded');
 
 function initTabTracker() {
   if (!supabase || !currentPair) return;
+  if (eventsChannel) {
+    eventsChannel.unsubscribe();
+  }
 
   eventsChannel = supabase.channel(getEventsChannelName(currentPair.id));
 
   eventsChannel
     .on('broadcast', { event: REALTIME_EVENTS.ACTIVITY_UPDATE }, (msg) => {
       const payload = msg.payload;
-      console.log('[TabTracker] Received activity broadcast:', payload.user_id, payload.activity?.site);
+      console.log('[SW] Received activity:', payload.user_id, payload.activity?.site);
       if (payload.user_id === currentSession?.user?.id) return;
       partnerActivity = payload.activity;
       chrome.runtime.sendMessage({
@@ -30,12 +33,12 @@ function initTabTracker() {
       }).catch(() => {});
     })
     .subscribe((status) => {
-      console.log('[TabTracker] Channel subscribe status:', status);
+      console.log('[SW] Channel status:', status);
     });
 
   tabTracker = new TabTracker((activity) => {
     if (eventsChannel) {
-      console.log('[TabTracker] Broadcasting activity:', activity.site, activity.title);
+      console.log('[SW] Broadcasting:', activity.site, activity.title);
       eventsChannel.send({
         type: 'broadcast',
         event: REALTIME_EVENTS.ACTIVITY_UPDATE,
@@ -64,24 +67,31 @@ function initTabTracker() {
 }
 
 async function startup() {
-  console.log('[Startup] Restoring session...');
-  currentSession = await restoreSession();
-  console.log('[Startup] Session:', currentSession ? 'found' : 'none');
-  if (currentSession) {
+  console.log('[SW] startup()');
+  if (!currentSession) {
+    currentSession = await restoreSession();
+  }
+  if (currentSession && !currentPair) {
     await loadPairData();
-    console.log('[Startup] Pair:', currentPair ? currentPair.id : 'none');
-    if (currentPair) {
-      initTabTracker();
-    }
+  }
+  if (currentPair) {
+    initTabTracker();
+    chrome.alarms.create('keepalive', { periodInMinutes: 0.4 });
   }
 }
 
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('Rhinosaurus Connect installed');
+  console.log('[SW] Installed');
 });
 
 chrome.runtime.onStartup.addListener(() => {
   console.log('[SW] Browser startup');
+});
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === 'keepalive') {
+    console.log('[SW] Keepalive tick');
+  }
 });
 
 startup();
