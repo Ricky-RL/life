@@ -473,7 +473,7 @@ function setupChat(renderer, userId) {
     async sendText(content) {
       const res = await chrome.runtime.sendMessage({ type: 'SEND_TEXT', content });
       if (res?.error) throw new Error(res.error);
-      return res.message || { id: Date.now(), type: 'text', content, sender_id: userId, created_at: new Date().toISOString() };
+      return res.message || { id: String(Date.now()), type: 'text', content, sender_id: userId, created_at: new Date().toISOString() };
     },
     async sendReaction(reactionType) {
       await chrome.runtime.sendMessage({ type: 'SEND_REACTION', reaction: reactionType });

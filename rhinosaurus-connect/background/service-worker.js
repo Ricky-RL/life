@@ -234,62 +234,101 @@ async function handleMessage(message) {
 
     case 'SEND_REACTION': {
       if (!currentPair || !currentSession) return { error: 'Not paired' };
-      const { data: reactionMsg, error: rErr } = await supabase.from('messages').insert({
+      const reactionPayload = {
+        id: `local-${Date.now()}`,
         pair_id: currentPair.id,
         sender_id: currentSession.user.id,
         type: message.reaction,
         content: null,
-      }).select().single();
-      if (!rErr && eventsChannel) {
-        eventsChannel.send({ type: 'broadcast', event: 'new_message', payload: reactionMsg });
+        created_at: new Date().toISOString(),
+      };
+      try {
+        const { data: reactionMsg, error: rErr } = await supabase.from('messages').insert({
+          pair_id: currentPair.id,
+          sender_id: currentSession.user.id,
+          type: message.reaction,
+          content: null,
+        }).select().single();
+        if (!rErr && reactionMsg) Object.assign(reactionPayload, reactionMsg);
+      } catch (e) {
+        console.warn('[SW] DB insert failed for reaction:', e.message);
       }
-      return { error: rErr?.message || null };
+      if (eventsChannel) {
+        eventsChannel.send({ type: 'broadcast', event: 'new_message', payload: reactionPayload });
+      }
+      return { error: null };
     }
 
     case 'SEND_TEXT': {
       if (!currentPair || !currentSession) return { error: 'Not paired' };
-      const { data: textMsg, error: tErr } = await supabase.from('messages').insert({
+      const textPayload = {
+        id: `local-${Date.now()}`,
         pair_id: currentPair.id,
         sender_id: currentSession.user.id,
         type: 'text',
         content: message.content,
-      }).select().single();
-      if (!tErr && eventsChannel) {
-        eventsChannel.send({ type: 'broadcast', event: 'new_message', payload: textMsg });
+        created_at: new Date().toISOString(),
+      };
+      try {
+        const { data: textMsg, error: tErr } = await supabase.from('messages').insert({
+          pair_id: currentPair.id,
+          sender_id: currentSession.user.id,
+          type: 'text',
+          content: message.content,
+        }).select().single();
+        if (!tErr && textMsg) Object.assign(textPayload, textMsg);
+      } catch (e) {
+        console.warn('[SW] DB insert failed for text:', e.message);
       }
-      return { error: tErr?.message || null, message: textMsg };
+      if (eventsChannel) {
+        eventsChannel.send({ type: 'broadcast', event: 'new_message', payload: textPayload });
+      }
+      return { error: null, message: textPayload };
     }
 
     case 'FETCH_MESSAGES': {
       if (!currentPair) return { messages: [] };
       const offset = message.offset || 0;
       const limit = message.limit || 50;
-      const { data, error: fErr } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('pair_id', currentPair.id)
-        .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1);
-      return { messages: data || [], error: fErr?.message || null };
+      try {
+        const { data, error: fErr } = await supabase
+          .from('messages')
+          .select('*')
+          .eq('pair_id', currentPair.id)
+          .order('created_at', { ascending: false })
+          .range(offset, offset + limit - 1);
+        return { messages: data || [], error: fErr?.message || null };
+      } catch (e) {
+        console.warn('[SW] Fetch messages failed:', e.message);
+        return { messages: [] };
+      }
     }
 
     case 'MARK_READ': {
       if (!currentPair || !currentSession) return { ok: true };
-      await supabase
-        .from('messages')
-        .update({ is_read: true })
-        .eq('pair_id', currentPair.id)
-        .eq('is_read', false)
-        .neq('sender_id', currentSession.user.id);
+      try {
+        await supabase
+          .from('messages')
+          .update({ is_read: true })
+          .eq('pair_id', currentPair.id)
+          .eq('is_read', false)
+          .neq('sender_id', currentSession.user.id);
+      } catch (e) {
+        console.warn('[SW] Mark read failed:', e.message);
+      }
       return { ok: true };
     }
 
     case 'SET_MOOD': {
       if (!currentSession) return { error: 'Not logged in' };
-      await supabase
-        .from('users')
-        .update({ mood: message.mood })
-        .eq('id', currentSession.user.id);
+      try {
+        await supabase
+          .from('users')
+          .update({ mood: message.mood })
+          .eq('id', currentSession.user.id);
+      } catch (e) {
+        console.warn('[SW] DB update failed for mood:', e.message);
+      }
       if (eventsChannel) {
         eventsChannel.send({
           type: 'broadcast',

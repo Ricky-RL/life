@@ -3,7 +3,7 @@ import { MoodBubble } from '../../../popup/mood/mood-bubble.js';
 
 describe('MoodBubble', () => {
   it('does not draw when mood is null', () => { const ctx = { save: vi.fn(), restore: vi.fn(), fillRect: vi.fn() }; const b = new MoodBubble(); b.draw(ctx, 100, 200, null); expect(ctx.fillRect).not.toHaveBeenCalled(); });
-  it('draws bubble background at correct position', () => { const ctx = { save: vi.fn(), restore: vi.fn(), fillRect: vi.fn(), drawImage: vi.fn(), globalAlpha: 1 }; const b = new MoodBubble(); b.draw(ctx, 100, 200, 'happy'); expect(ctx.fillRect).toHaveBeenCalled(); });
+  it('draws bubble background at correct position', () => { const ctx = { save: vi.fn(), restore: vi.fn(), fillRect: vi.fn(), drawImage: vi.fn(), fillText: vi.fn(), globalAlpha: 1, fillStyle: '', font: '', textAlign: '', textBaseline: '' }; const b = new MoodBubble(); b.draw(ctx, 100, 200, 'happy'); expect(ctx.fillRect).toHaveBeenCalled(); });
   it('draws mood sprite when available', () => { const ctx = { save: vi.fn(), restore: vi.fn(), fillRect: vi.fn(), drawImage: vi.fn(), globalAlpha: 1 }; const b = new MoodBubble(); b.setSpriteSheet({ width: 112, height: 16 }); b.draw(ctx, 100, 200, 'happy'); expect(ctx.drawImage).toHaveBeenCalled(); });
   it('calculates bubble position above avatar', () => { const b = new MoodBubble(); const pos = b.getPosition(100, 200); expect(pos.x).toBe(110); expect(pos.y).toBe(180); });
   it('animates transition with fade', () => { const b = new MoodBubble(); b.setMood('happy'); expect(b.transitioning).toBe(true); expect(b.opacity).toBeLessThan(1); });

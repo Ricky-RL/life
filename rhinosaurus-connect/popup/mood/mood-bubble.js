@@ -57,6 +57,14 @@ export class MoodBubble {
           pos.x + 2, pos.y, SPRITE_SIZE, SPRITE_SIZE,
         );
       }
+    } else {
+      const option = MOOD_OPTIONS.find((m) => m.key === mood);
+      if (option) {
+        ctx.font = '12px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(option.emoji, pos.x + BUBBLE_WIDTH / 2, pos.y + BUBBLE_HEIGHT / 2);
+      }
     }
     ctx.restore();
   }
