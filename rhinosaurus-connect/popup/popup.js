@@ -1,5 +1,6 @@
 import { RoomRenderer } from './room/room-renderer.js';
 import { RoomState } from './room/room-state.js';
+import { AuthUI } from './auth.js';
 
 const screens = {
   login: document.getElementById('login-screen'),
@@ -14,7 +15,28 @@ function showScreen(name) {
   screens[name].classList.remove('hidden');
 }
 
+const authUI = new AuthUI(showScreen);
+authUI.init();
+
 async function init() {
+  const session = await chrome.runtime.sendMessage({ type: 'GET_SESSION' });
+  if (!session?.session) {
+    showScreen('login');
+    return;
+  }
+
+  const pair = await chrome.runtime.sendMessage({ type: 'GET_PAIR' });
+  if (!pair?.pair) {
+    showScreen('pairing');
+    return;
+  }
+
+  initRoom();
+}
+
+function initRoom() {
+  showScreen('room');
+
   const canvas = document.getElementById('room-canvas');
   const roomState = new RoomState();
   const renderer = new RoomRenderer(canvas, roomState);
@@ -51,7 +73,6 @@ async function init() {
     console.log('Chat (not yet implemented)');
   });
 
-  showScreen('room');
   renderer.startRenderLoop();
 }
 
