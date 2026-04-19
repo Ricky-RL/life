@@ -31,6 +31,26 @@ async function init() {
     }
   });
 
+  document.getElementById('settings-btn').addEventListener('click', () => {
+    chrome.runtime.openOptionsPage();
+  });
+
+  document.getElementById('heart-btn').addEventListener('click', () => {
+    console.log('Heart sent (not yet implemented)');
+  });
+
+  document.getElementById('kiss-btn').addEventListener('click', () => {
+    console.log('Kiss sent (not yet implemented)');
+  });
+
+  document.getElementById('mood-btn').addEventListener('click', () => {
+    console.log('Mood picker (not yet implemented)');
+  });
+
+  document.getElementById('chat-btn').addEventListener('click', () => {
+    console.log('Chat (not yet implemented)');
+  });
+
   showScreen('room');
   renderer.startRenderLoop();
 }
