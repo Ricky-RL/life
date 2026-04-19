@@ -50,6 +50,27 @@ export class RoomRenderer {
     return null;
   }
 
+  hitTestAll(clickX, clickY) {
+    const items = [...this.roomState.furniture].sort((a, b) => b.y - a.y);
+    for (const item of items) {
+      const hitbox = {
+        x: item.x,
+        y: item.y,
+        width: DEFAULT_HITBOX_SIZE.width,
+        height: DEFAULT_HITBOX_SIZE.height,
+      };
+      if (
+        clickX >= hitbox.x &&
+        clickX <= hitbox.x + hitbox.width &&
+        clickY >= hitbox.y &&
+        clickY <= hitbox.y + hitbox.height
+      ) {
+        return item;
+      }
+    }
+    return null;
+  }
+
   renderFrame() {
     if (!this.dirty) return;
     this.dirty = false;
@@ -112,6 +133,23 @@ export class RoomRenderer {
     this.ctx.strokeStyle = 'rgba(255, 215, 0, 0.6)';
     this.ctx.lineWidth = 2;
     this.ctx.strokeRect(item.x - 1, item.y - 1, DEFAULT_HITBOX_SIZE.width + 2, DEFAULT_HITBOX_SIZE.height + 2);
+    this.ctx.restore();
+  }
+
+  drawEditOutline(item) {
+    this.ctx.save();
+    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+    this.ctx.lineWidth = 1;
+    this.ctx.setLineDash([3, 3]);
+    this.ctx.strokeRect(item.x, item.y, DEFAULT_HITBOX_SIZE.width, DEFAULT_HITBOX_SIZE.height);
+    this.ctx.restore();
+  }
+
+  drawSelectionHighlight(item) {
+    this.ctx.save();
+    this.ctx.strokeStyle = 'rgba(100, 200, 255, 0.8)';
+    this.ctx.lineWidth = 2;
+    this.ctx.strokeRect(item.x - 2, item.y - 2, DEFAULT_HITBOX_SIZE.width + 4, DEFAULT_HITBOX_SIZE.height + 4);
     this.ctx.restore();
   }
 

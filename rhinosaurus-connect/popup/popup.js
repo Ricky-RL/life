@@ -3,6 +3,10 @@ import { RoomState } from './room/room-state.js';
 import { DateService } from './calendar/date-service.js';
 import { CalendarOverlay } from './calendar/calendar-overlay.js';
 import { CalendarGlow } from './room/calendar-glow.js';
+import { EditModeController } from './room/edit-mode.js';
+import { CustomizationPanel } from './room/customization-panel.js';
+import { FurnitureCatalog } from './room/furniture-catalog.js';
+import { ColorTinter } from './room/color-tinter.js';
 
 const screens = {
   login: document.getElementById('login-screen'),
@@ -38,6 +42,11 @@ async function init() {
   const canvas = document.getElementById('room-canvas');
   const roomState = new RoomState();
   const renderer = new RoomRenderer(canvas, roomState);
+  const catalog = new FurnitureCatalog();
+  const tinter = new ColorTinter();
+
+  let editMode = null;
+  let customPanel = null;
 
   renderer.addEffect({
     draw(ctx) {
@@ -57,21 +66,104 @@ async function init() {
     };
   }
 
+  function setupCustomization() {
+    editMode = new EditModeController(roomState, {
+      broadcastFurnitureMove: () => {},
+      broadcastFurnitureChange: () => {},
+      scheduleSave: () => {},
+    });
+
+    const panelContainer = document.createElement('div');
+    panelContainer.id = 'customization-panel';
+    document.getElementById('room-screen').appendChild(panelContainer);
+    customPanel = new CustomizationPanel(panelContainer);
+
+    editMode.onSelectionChange = (selectedId) => {
+      if (!selectedId) {
+        customPanel.hide();
+        renderer.markDirty();
+        return;
+      }
+      const item = roomState.furniture.find(f => f.id === selectedId);
+      if (item) {
+        customPanel.show(item, roomState.isEssential(selectedId));
+      }
+      renderer.markDirty();
+    };
+
+    editMode.onModeChange = () => {
+      renderer.markDirty();
+    };
+
+    customPanel.onColorChange = (color) => {
+      editMode.changeColor(color);
+      renderer.markDirty();
+    };
+
+    customPanel.onRemove = (id) => {
+      editMode.removeItem(id);
+      customPanel.hide();
+      renderer.markDirty();
+    };
+  }
+
+  setupCustomization();
+
   canvas.addEventListener('click', (e) => {
     const { x, y } = canvasCoords(e);
+
+    if (editMode && editMode.isEditMode) {
+      const hit = renderer.hitTestAll(x, y);
+      if (hit) {
+        editMode.select(hit.id);
+      } else {
+        editMode.select(null);
+      }
+      return;
+    }
+
     const hit = renderer.hitTest(x, y);
     if (hit) {
       handleInteraction(hit);
     }
   });
 
+  canvas.addEventListener('mousedown', (e) => {
+    if (!editMode || !editMode.isEditMode || !editMode.selectedId) return;
+    const { x, y } = canvasCoords(e);
+    const hit = renderer.hitTestAll(x, y);
+    if (hit && hit.id === editMode.selectedId) {
+      editMode.startDrag(x, y);
+    }
+  });
+
   canvas.addEventListener('mousemove', (e) => {
     const { x, y } = canvasCoords(e);
+    if (editMode && editMode.isDragging) {
+      editMode.drag(x, y);
+      renderer.markDirty();
+      return;
+    }
     renderer.handleMouseMove(x, y);
   });
 
+  canvas.addEventListener('mouseup', () => {
+    if (editMode && editMode.isDragging) {
+      editMode.endDrag();
+      renderer.markDirty();
+    }
+  });
+
   document.getElementById('settings-btn').addEventListener('click', () => {
-    chrome.runtime.openOptionsPage();
+    if (editMode) {
+      if (editMode.isEditMode) {
+        editMode.exit();
+        customPanel.hide();
+      } else {
+        editMode.enter();
+      }
+      renderer.markDirty();
+    }
   });
 
   document.getElementById('heart-btn').addEventListener('click', () => {
