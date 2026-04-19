@@ -13,8 +13,6 @@ import { AvatarController } from './room/avatar-controller.js';
 import { TVDisplay } from './room/tv-display.js';
 import { TVOverlay } from './room/tv-overlay.js';
 import { ChatOverlay } from './chat/chat-overlay.js';
-import { MessageService } from './chat/message-service.js';
-import { TypingIndicator } from './chat/typing-indicator.js';
 import { PhoneGlow } from './room/phone-glow.js';
 import { ReactionHandler } from './room/reaction-handler.js';
 import { ReactionParticleSystem } from './room/reaction-particles.js';
@@ -47,7 +45,6 @@ const phoneGlow = new PhoneGlow();
 const particleSystem = new ReactionParticleSystem();
 let chatOverlay = null;
 let messageService = null;
-let typingIndicator = null;
 let reactionHandler = null;
 let moodDropdown = null;
 let moodHandler = null;
@@ -69,6 +66,11 @@ async function setupCalendar(anniversaryDate) {
 async function init(sessionData) {
   const canvas = document.getElementById('room-canvas');
   const roomState = new RoomState();
+
+  if (sessionData?.roomState?.furniture) {
+    roomState.furniture = sessionData.roomState.furniture;
+  }
+
   const renderer = new RoomRenderer(canvas, roomState);
   const catalog = new FurnitureCatalog();
 
@@ -185,11 +187,22 @@ async function init(sessionData) {
     };
   }
 
+  let saveTimer = null;
+  function scheduleSave() {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      chrome.runtime.sendMessage({
+        type: 'SAVE_ROOM_STATE',
+        furniture: roomState.furniture,
+      }).catch(() => {});
+    }, 2000);
+  }
+
   function setupCustomization() {
     editMode = new EditModeController(roomState, {
-      broadcastFurnitureMove: () => {},
-      broadcastFurnitureChange: () => {},
-      scheduleSave: () => {},
+      broadcastFurnitureMove: () => { renderer.markDirty(); },
+      broadcastFurnitureChange: () => { scheduleSave(); renderer.markDirty(); },
+      scheduleSave,
     });
 
     renderer.editModeController = editMode;
@@ -541,9 +554,6 @@ function setupChat(renderer, userId) {
       bubble.setMood(mood);
       renderer.markDirty();
     }
-    if (message.type === 'PARTNER_TYPING') {
-      if (typingIndicator) typingIndicator.onPartnerTyping();
-    }
   });
 }
 
@@ -659,12 +669,12 @@ async function boot() {
   authUI.init();
 
   try {
-    const { session } = await chrome.runtime.sendMessage({ type: 'GET_SESSION' });
+    const response = await chrome.runtime.sendMessage({ type: 'GET_SESSION' });
+    const { session, pair, roomState } = response || {};
     if (session) {
-      const { pair } = await chrome.runtime.sendMessage({ type: 'GET_PAIR' });
       if (pair) {
         showScreen('room');
-        init({ session, pair });
+        init({ session, pair, roomState });
       } else {
         showScreen('pairing');
       }
@@ -679,9 +689,9 @@ async function boot() {
 
 async function bootRoom() {
   try {
-    const { session } = await chrome.runtime.sendMessage({ type: 'GET_SESSION' });
-    const { pair } = await chrome.runtime.sendMessage({ type: 'GET_PAIR' });
-    init({ session, pair });
+    const response = await chrome.runtime.sendMessage({ type: 'GET_SESSION' });
+    const { session, pair, roomState } = response || {};
+    init({ session, pair, roomState });
   } catch (err) {
     console.error('Failed to load session for room:', err);
     init();

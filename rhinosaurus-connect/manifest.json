@@ -43,7 +43,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["assets/sprites/*.png"],
+      "resources": ["assets/sprites/*.png", "assets/sounds/*.mp3"],
       "matches": ["<all_urls>"]
     }
   ]
