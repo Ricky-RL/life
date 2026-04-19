@@ -38,9 +38,9 @@ export class NotificationManager {
     const { type, content } = messageData;
     switch (type) {
       case 'heart':
-        return '❤️';
+        return 'Sent you a heart ❤️';
       case 'kiss':
-        return '💋';
+        return 'Sent you a kiss 💋';
       case 'image':
         return 'Sent you a photo 📷';
       default:

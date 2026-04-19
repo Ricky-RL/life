@@ -13,7 +13,44 @@ let currentSession = null;
 let currentPair = null;
 let tabTracker = null;
 let eventsChannel = null;
+let channelReady = false;
 let partnerActivity = null;
+let popupOpen = false;
+let lastNotifiedAt = null;
+
+function sendToPopup(message) {
+  if (!popupOpen) return false;
+  chrome.runtime.sendMessage(message).catch(() => { popupOpen = false; });
+  return true;
+}
+
+async function pollForNotifications() {
+  if (popupOpen || !currentPair || !currentSession) return;
+  const since = lastNotifiedAt || new Date(Date.now() - 30000).toISOString();
+  try {
+    const { data } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('pair_id', currentPair.id)
+      .neq('sender_id', currentSession.user.id)
+      .gt('created_at', since)
+      .order('created_at', { ascending: true })
+      .limit(5);
+    if (data && data.length > 0) {
+      lastNotifiedAt = data[data.length - 1].created_at;
+      for (const msg of data) {
+        await notificationManager.notify({
+          type: msg.type,
+          content: msg.content,
+          senderName: 'Partner',
+          animation: msg.type === 'heart' || msg.type === 'kiss' ? msg.type : 'speaking',
+        });
+      }
+    }
+  } catch (e) {
+    console.warn('[SW] Poll failed:', e.message);
+  }
+}
 
 console.log('[SW] Service worker loaded');
 
@@ -21,6 +58,7 @@ function initTabTracker() {
   if (!supabase || !currentPair) return;
   if (eventsChannel) {
     eventsChannel.unsubscribe();
+    channelReady = false;
   }
 
   eventsChannel = supabase.channel(getEventsChannelName(currentPair.id));
@@ -31,50 +69,44 @@ function initTabTracker() {
       console.log('[SW] Received activity:', payload.user_id, payload.activity?.site);
       if (payload.user_id === currentSession?.user?.id) return;
       partnerActivity = payload.activity;
-      chrome.runtime.sendMessage({
-        type: 'PARTNER_ACTIVITY_UPDATE',
-        activity: partnerActivity,
-      }).catch(() => {});
+      sendToPopup({ type: 'PARTNER_ACTIVITY_UPDATE', activity: partnerActivity });
     })
     .on('broadcast', { event: 'new_message' }, (msg) => {
       const payload = msg.payload;
       if (payload.sender_id === currentSession?.user?.id) return;
       if (payload.type === 'heart' || payload.type === 'kiss') {
-        chrome.runtime.sendMessage({
+        const sent = sendToPopup({
           type: 'PARTNER_REACTION',
           data: { reaction: payload.type, sender_id: payload.sender_id },
-        }).catch(() => {
-          notificationManager.notify({ type: payload.type, senderName: 'Partner' });
         });
+        if (!sent) {
+          notificationManager.notify({ type: payload.type, senderName: 'Partner', animation: payload.type });
+        }
       } else {
-        chrome.runtime.sendMessage({
-          type: 'NEW_MESSAGE',
-          data: payload,
-        }).catch(() => {
+        const sent = sendToPopup({ type: 'NEW_MESSAGE', data: payload });
+        if (!sent) {
           notificationManager.notify({
             type: payload.type,
             content: payload.content,
             senderName: 'Partner',
             animation: 'speaking',
           });
-        });
+        }
       }
     })
     .on('broadcast', { event: REALTIME_EVENTS.MOOD_UPDATE }, (msg) => {
       const payload = msg.payload;
       if (payload.user_id === currentSession?.user?.id) return;
-      chrome.runtime.sendMessage({
-        type: 'PARTNER_MOOD_UPDATE',
-        data: { mood: payload.mood },
-      }).catch(() => {});
+      sendToPopup({ type: 'PARTNER_MOOD_UPDATE', data: { mood: payload.mood } });
     })
     .on('broadcast', { event: 'typing' }, (msg) => {
       const payload = msg.payload;
       if (payload.user_id === currentSession?.user?.id) return;
-      chrome.runtime.sendMessage({ type: 'PARTNER_TYPING' }).catch(() => {});
+      sendToPopup({ type: 'PARTNER_TYPING' });
     })
     .subscribe((status) => {
       console.log('[SW] Channel status:', status);
+      channelReady = status === 'SUBSCRIBED';
     });
 
   tabTracker = new TabTracker((activity) => {
@@ -117,8 +149,8 @@ async function startup() {
   }
   if (currentPair) {
     initTabTracker();
-    chrome.alarms.create('keepalive', { periodInMinutes: 0.4 });
   }
+  chrome.alarms.create('keepalive', { periodInMinutes: 0.4 });
 }
 
 chrome.runtime.onInstalled.addListener(() => {
@@ -131,7 +163,10 @@ chrome.runtime.onStartup.addListener(() => {
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'keepalive') {
-    console.log('[SW] Keepalive tick');
+    if (!currentSession || !currentPair || !channelReady) {
+      startup();
+    }
+    pollForNotifications();
   }
 });
 
@@ -143,6 +178,10 @@ async function loadPairData() {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (sender.id === chrome.runtime.id && !sender.tab) {
+    popupOpen = true;
+    lastNotifiedAt = null;
+  }
   handleMessage(message)
     .then(sendResponse)
     .catch((err) => {
@@ -253,8 +292,10 @@ async function handleMessage(message) {
       } catch (e) {
         console.warn('[SW] DB insert failed for reaction:', e.message);
       }
-      if (eventsChannel) {
+      if (eventsChannel && channelReady) {
         eventsChannel.send({ type: 'broadcast', event: 'new_message', payload: reactionPayload });
+      } else {
+        console.warn('[SW] Channel not ready, reaction broadcast skipped');
       }
       return { error: null };
     }
@@ -280,8 +321,10 @@ async function handleMessage(message) {
       } catch (e) {
         console.warn('[SW] DB insert failed for text:', e.message);
       }
-      if (eventsChannel) {
+      if (eventsChannel && channelReady) {
         eventsChannel.send({ type: 'broadcast', event: 'new_message', payload: textPayload });
+      } else {
+        console.warn('[SW] Channel not ready, text broadcast skipped');
       }
       return { error: null, message: textPayload };
     }
@@ -329,17 +372,21 @@ async function handleMessage(message) {
       } catch (e) {
         console.warn('[SW] DB update failed for mood:', e.message);
       }
-      if (eventsChannel) {
+      if (eventsChannel && channelReady) {
         eventsChannel.send({
           type: 'broadcast',
           event: REALTIME_EVENTS.MOOD_UPDATE,
           payload: { user_id: currentSession.user.id, mood: message.mood },
         });
+      } else {
+        console.warn('[SW] Channel not ready, mood broadcast skipped');
       }
       return { ok: true };
     }
 
     case 'POPUP_CLOSED': {
+      popupOpen = false;
+      lastNotifiedAt = new Date().toISOString();
       if (currentSession) {
         await supabase
           .from('users')

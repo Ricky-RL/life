@@ -689,3 +689,7 @@ async function bootRoom() {
 }
 
 boot();
+
+window.addEventListener('unload', () => {
+  chrome.runtime.sendMessage({ type: 'POPUP_CLOSED' }).catch(() => {});
+});

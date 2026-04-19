@@ -15,19 +15,26 @@ function showCornerPopup(data) {
   const inner = document.createElement('div');
   inner.className = 'rhino-notif-container';
 
-  const avatarEl = document.createElement('div');
-  avatarEl.className = 'rhino-avatar-placeholder';
+  const icon = document.createElement('div');
+  icon.className = 'rhino-notif-icon';
+  icon.textContent = data.animation === 'heart' ? '❤️'
+    : data.animation === 'kiss' ? '💋' : '💬';
 
-  const bubble = document.createElement('div');
-  bubble.className = 'rhino-speech-bubble';
+  const body = document.createElement('div');
+  body.className = 'rhino-notif-body';
+
+  const title = document.createElement('span');
+  title.className = 'rhino-notif-title';
+  title.textContent = 'Rhinosaurus Connect';
 
   const msgSpan = document.createElement('span');
   msgSpan.className = 'rhino-message';
   msgSpan.textContent = data.preview || '';
 
-  bubble.appendChild(msgSpan);
-  inner.appendChild(avatarEl);
-  inner.appendChild(bubble);
+  body.appendChild(title);
+  body.appendChild(msgSpan);
+  inner.appendChild(icon);
+  inner.appendChild(body);
   container.appendChild(inner);
   document.body.appendChild(container);
 

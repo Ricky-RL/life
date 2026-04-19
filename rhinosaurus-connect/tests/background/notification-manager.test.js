@@ -34,8 +34,8 @@ describe('NotificationManager', () => {
     expect(mockChrome.notifications.create).toHaveBeenCalled();
   });
 
-  it('formats heart reaction preview', () => { expect(manager.formatPreview({ type: 'heart' })).toBe('❤️'); });
-  it('formats kiss reaction preview', () => { expect(manager.formatPreview({ type: 'kiss' })).toBe('💋'); });
+  it('formats heart reaction preview', () => { expect(manager.formatPreview({ type: 'heart' })).toBe('Sent you a heart ❤️'); });
+  it('formats kiss reaction preview', () => { expect(manager.formatPreview({ type: 'kiss' })).toBe('Sent you a kiss 💋'); });
   it('formats image message preview', () => { expect(manager.formatPreview({ type: 'image' })).toBe('Sent you a photo 📷'); });
   it('truncates long text messages to 80 chars', () => { const p = manager.formatPreview({ type: 'text', content: 'a'.repeat(100) }); expect(p.length).toBeLessThanOrEqual(83); expect(p.endsWith('...')).toBe(true); });
 });
