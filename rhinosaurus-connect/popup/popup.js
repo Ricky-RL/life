@@ -11,6 +11,8 @@ import { FurnitureCatalog } from './room/furniture-catalog.js';
 import { ColorTinter } from './room/color-tinter.js';
 import { AvatarAnimator } from './room/avatar-animator.js';
 import { AvatarController } from './room/avatar-controller.js';
+import { TVDisplay } from './room/tv-display.js';
+import { TVOverlay } from './room/tv-overlay.js';
 import { AVATAR_SIZE, AVATAR_RENDER_SCALE } from '../shared/constants.js';
 
 const screens = {
@@ -29,6 +31,8 @@ function showScreen(name) {
 let calendarOverlay = null;
 let dateService = null;
 const calendarGlow = new CalendarGlow();
+let tvDisplay = null;
+let tvOverlay = null;
 
 async function setupCalendar(supabase, pairId, userId, anniversaryDate) {
   dateService = new DateService(supabase, pairId, userId);
@@ -43,7 +47,7 @@ async function setupCalendar(supabase, pairId, userId, anniversaryDate) {
   calendarGlow.setMilestones(milestones);
 }
 
-async function init() {
+async function init(sessionData) {
   const canvas = document.getElementById('room-canvas');
   const roomState = new RoomState();
   const renderer = new RoomRenderer(canvas, roomState);
@@ -99,12 +103,58 @@ async function init() {
   let editMode = null;
   let customPanel = null;
 
+  const userBar = document.getElementById('user-bar');
+  if (sessionData?.session?.user) {
+    const user = sessionData.session.user;
+    const name = user.user_metadata?.full_name || user.email || 'signed in';
+    userBar.textContent = name;
+    userBar.classList.remove('hidden');
+  }
+
   renderer.addEffect({
     draw(ctx) {
       const cal = roomState.furniture.find(f => f.type === 'calendar');
       if (cal) calendarGlow.draw(ctx, cal.x, cal.y, performance.now());
       if (calendarGlow.isActive) renderer.markDirty();
     },
+  });
+
+  tvDisplay = new TVDisplay();
+  renderer.addEffect({
+    draw(ctx) {
+      const tvItem = roomState.furniture.find(f => f.type === 'tv');
+      if (tvItem && tvDisplay) {
+        tvDisplay.draw(ctx, tvItem.x + 4, tvItem.y + 4, 40, 28);
+        renderer.markDirty();
+      }
+    },
+  });
+
+  function applyActivity(activity) {
+    if (!activity) {
+      tvDisplay.setPartnerState({ isOnline: false });
+    } else if (activity.idle) {
+      tvDisplay.setPartnerState({ isOnline: true, idle: true });
+    } else if (activity.trackingPaused) {
+      tvDisplay.setPartnerState({ isOnline: true, trackingPaused: true });
+    } else if (activity.site) {
+      tvDisplay.setPartnerState({ isOnline: true, activity });
+    } else {
+      tvDisplay.setPartnerState({ isOnline: true });
+    }
+    if (tvOverlay?.element) {
+      tvOverlay.show();
+    }
+  }
+
+  chrome.runtime.sendMessage({ type: 'GET_PARTNER_ACTIVITY' }).then((res) => {
+    if (res?.activity) applyActivity(res.activity);
+  }).catch(() => {});
+
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message.type === 'PARTNER_ACTIVITY_UPDATE') {
+      applyActivity(message.activity);
+    }
   });
 
   function canvasCoords(e) {
@@ -220,6 +270,7 @@ async function init() {
 
   const myAvatar = addSpriteAvatar('me', spriteUrl('avatar-male.png'), 130, 310);
   const partnerAvatar = addSpriteAvatar('partner', spriteUrl('avatar-female.png'), 175, 310);
+  let draggingAvatar = null;
 
   canvas.addEventListener('click', (e) => {
     const { x, y } = canvasCoords(e);
@@ -241,16 +292,35 @@ async function init() {
   });
 
   canvas.addEventListener('mousedown', (e) => {
-    if (!editMode || !editMode.isEditMode || !editMode.selectedId) return;
     const { x, y } = canvasCoords(e);
-    const hit = renderer.hitTestAll(x, y);
-    if (hit && hit.id === editMode.selectedId) {
-      editMode.startDrag(x, y);
+
+    if (editMode && editMode.isEditMode) {
+      if (!editMode.selectedId) return;
+      const hit = renderer.hitTestAll(x, y);
+      if (hit && hit.id === editMode.selectedId) {
+        editMode.startDrag(x, y);
+      }
+      return;
+    }
+
+    if (myAvatar.hitTest(x, y, AVATAR_RENDER_SCALE)) {
+      draggingAvatar = myAvatar;
+      myAvatar.startDrag(x, y);
+      return;
     }
   });
 
   canvas.addEventListener('mousemove', (e) => {
     const { x, y } = canvasCoords(e);
+
+    if (draggingAvatar) {
+      const sw = AVATAR_SIZE.width * AVATAR_RENDER_SCALE;
+      const sh = AVATAR_SIZE.height * AVATAR_RENDER_SCALE;
+      draggingAvatar.drag(x - sw / 2, y - sh / 2);
+      renderer.markDirty();
+      return;
+    }
+
     if (editMode && editMode.isDragging) {
       editMode.drag(x, y);
       renderer.markDirty();
@@ -260,6 +330,12 @@ async function init() {
   });
 
   canvas.addEventListener('mouseup', () => {
+    if (draggingAvatar) {
+      draggingAvatar.endDrag();
+      draggingAvatar = null;
+      renderer.markDirty();
+      return;
+    }
     if (editMode && editMode.isDragging) {
       editMode.endDrag();
       renderer.markDirty();
@@ -320,22 +396,35 @@ async function init() {
 }
 
 function setupCalendarMock() {
+  const dates = [
+    { id: '1', label: 'Next Visit', date: '2026-05-10', is_countdown: true, is_recurring: false },
+    { id: '2', label: 'Her Birthday', date: '2025-08-22', is_countdown: true, is_recurring: true },
+    { id: '3', label: 'First Date', date: '2024-06-15', is_countdown: false, is_recurring: false },
+  ];
+
   const mockService = {
-    fetchDates: () => Promise.resolve([
-      { id: '1', label: 'Next Visit', date: '2026-05-10', is_countdown: true, is_recurring: false },
-      { id: '2', label: 'Her Birthday', date: '2025-08-22', is_countdown: true, is_recurring: true },
-      { id: '3', label: 'First Date', date: '2024-06-15', is_countdown: false, is_recurring: false },
-    ]),
-    addDate: (label, date, isCountdown, isRecurring) =>
-      Promise.resolve({ id: String(Date.now()), label, date, is_countdown: isCountdown, is_recurring: isRecurring }),
-    deleteDate: () => Promise.resolve(),
-    updateDate: () => Promise.resolve(),
+    fetchDates: () => Promise.resolve([...dates]),
+    addDate: (label, date, isCountdown, isRecurring) => {
+      const newDate = { id: String(Date.now()), label, date, is_countdown: isCountdown, is_recurring: isRecurring };
+      dates.push(newDate);
+      return Promise.resolve(newDate);
+    },
+    deleteDate: (id) => {
+      const idx = dates.findIndex(d => d.id === id);
+      if (idx !== -1) dates.splice(idx, 1);
+      return Promise.resolve();
+    },
+    updateDate: (id, changes) => {
+      const idx = dates.findIndex(d => d.id === id);
+      if (idx !== -1) Object.assign(dates[idx], changes);
+      return Promise.resolve();
+    },
     getAnniversaryDays: (d) => d ? Math.floor((Date.now() - new Date(d).getTime()) / 86400000) : null,
-    sortDates: (dates) => {
+    sortDates: (list) => {
       const now = new Date();
       const upcoming = [];
       const past = [];
-      for (const d of dates) {
+      for (const d of list) {
         const diff = Math.round((new Date(d.date) - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
         const entry = { ...d, effectiveDate: d.date, days: diff };
         if (diff >= 0) upcoming.push(entry);
@@ -359,6 +448,19 @@ function handleInteraction(item) {
     calendarOverlay.open();
     return;
   }
+  if (item.interaction === 'activity' && tvDisplay) {
+    const overlayContainer = document.getElementById('overlay-container');
+    if (!tvOverlay) {
+      tvOverlay = new TVOverlay(overlayContainer, tvDisplay, () => {
+        const activity = tvDisplay.partnerState.activity;
+        if (activity?.youtubeVideoId) {
+          window.open(`https://www.youtube.com/watch?v=${activity.youtubeVideoId}`, '_blank');
+        }
+      });
+    }
+    tvOverlay.show();
+    return;
+  }
   console.log('Interaction:', item.interaction, item.id);
 }
 
@@ -366,7 +468,7 @@ async function boot() {
   const authUI = new AuthUI((screen) => {
     showScreen(screen);
     if (screen === 'room') {
-      init();
+      bootRoom();
     }
   });
   authUI.init();
@@ -377,7 +479,7 @@ async function boot() {
       const { pair } = await chrome.runtime.sendMessage({ type: 'GET_PAIR' });
       if (pair) {
         showScreen('room');
-        init();
+        init({ session, pair });
       } else {
         showScreen('pairing');
       }
@@ -387,6 +489,17 @@ async function boot() {
   } catch (err) {
     console.error('Boot session check failed:', err);
     showScreen('login');
+  }
+}
+
+async function bootRoom() {
+  try {
+    const { session } = await chrome.runtime.sendMessage({ type: 'GET_SESSION' });
+    const { pair } = await chrome.runtime.sendMessage({ type: 'GET_PAIR' });
+    init({ session, pair });
+  } catch (err) {
+    console.error('Failed to load session for room:', err);
+    init();
   }
 }
 
