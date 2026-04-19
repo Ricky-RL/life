@@ -110,6 +110,8 @@ create policy "users_insert_own" on public.users for insert
 -- Pairs: members can read their own pair
 create policy "pairs_select_member" on public.pairs for select
   using (auth.uid() = user_a or auth.uid() = user_b);
+create policy "pairs_delete_member" on public.pairs for delete
+  using (auth.uid() = user_a or auth.uid() = user_b);
 
 -- Pair Codes: anyone can read (for pairing), only creator can write/delete
 create policy "pair_codes_select_all" on public.pair_codes for select

@@ -232,7 +232,23 @@ async function handleMessage(message) {
       if (!currentSession) {
         currentSession = await restoreSession();
       }
-      return { session: currentSession };
+      if (currentSession && !currentPair) {
+        await loadPairData();
+      }
+      let roomState = null;
+      if (currentPair) {
+        try {
+          const { data } = await supabase
+            .from('room_state')
+            .select('furniture, avatar_positions, theme')
+            .eq('pair_id', currentPair.id)
+            .single();
+          roomState = data;
+        } catch (e) {
+          console.warn('[SW] Failed to load room state:', e.message);
+        }
+      }
+      return { session: currentSession, pair: currentPair, roomState };
     }
 
     case 'SIGN_OUT': {
@@ -380,6 +396,26 @@ async function handleMessage(message) {
         });
       } else {
         console.warn('[SW] Channel not ready, mood broadcast skipped');
+      }
+      return { ok: true };
+    }
+
+    case 'SAVE_ROOM_STATE': {
+      if (!currentPair) return { error: 'Not paired' };
+      try {
+        await supabase
+          .from('room_state')
+          .update({ furniture: message.furniture, updated_at: new Date().toISOString() })
+          .eq('pair_id', currentPair.id);
+        if (eventsChannel) {
+          eventsChannel.send({
+            type: 'broadcast',
+            event: 'room_update',
+            payload: { user_id: currentSession?.user?.id, furniture: message.furniture },
+          });
+        }
+      } catch (e) {
+        console.warn('[SW] Failed to save room state:', e.message);
       }
       return { ok: true };
     }
