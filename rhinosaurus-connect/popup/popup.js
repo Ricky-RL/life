@@ -152,6 +152,7 @@ async function init() {
 
   const myAvatar = addPlaceholderAvatar('me', '#E8A0BF', 100, 280);
   const partnerAvatar = addPlaceholderAvatar('partner', '#A0C4E8', 180, 280);
+  let draggingAvatar = null;
 
   canvas.addEventListener('click', (e) => {
     const { x, y } = canvasCoords(e);
@@ -173,16 +174,35 @@ async function init() {
   });
 
   canvas.addEventListener('mousedown', (e) => {
-    if (!editMode || !editMode.isEditMode || !editMode.selectedId) return;
     const { x, y } = canvasCoords(e);
-    const hit = renderer.hitTestAll(x, y);
-    if (hit && hit.id === editMode.selectedId) {
-      editMode.startDrag(x, y);
+
+    if (editMode && editMode.isEditMode) {
+      if (!editMode.selectedId) return;
+      const hit = renderer.hitTestAll(x, y);
+      if (hit && hit.id === editMode.selectedId) {
+        editMode.startDrag(x, y);
+      }
+      return;
+    }
+
+    if (myAvatar.hitTest(x, y, AVATAR_RENDER_SCALE)) {
+      draggingAvatar = myAvatar;
+      myAvatar.startDrag(x, y);
+      return;
     }
   });
 
   canvas.addEventListener('mousemove', (e) => {
     const { x, y } = canvasCoords(e);
+
+    if (draggingAvatar) {
+      const sw = AVATAR_SIZE.width * AVATAR_RENDER_SCALE;
+      const sh = AVATAR_SIZE.height * AVATAR_RENDER_SCALE;
+      draggingAvatar.drag(x - sw / 2, y - sh / 2);
+      renderer.markDirty();
+      return;
+    }
+
     if (editMode && editMode.isDragging) {
       editMode.drag(x, y);
       renderer.markDirty();
@@ -192,6 +212,12 @@ async function init() {
   });
 
   canvas.addEventListener('mouseup', () => {
+    if (draggingAvatar) {
+      draggingAvatar.endDrag();
+      draggingAvatar = null;
+      renderer.markDirty();
+      return;
+    }
     if (editMode && editMode.isDragging) {
       editMode.endDrag();
       renderer.markDirty();
