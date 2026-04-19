@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { CustomizationPanel } from '../../../popup/room/customization-panel.js';
+import { FurnitureCatalog } from '../../../popup/room/furniture-catalog.js';
 
 describe('CustomizationPanel', () => {
   let panel;
@@ -68,5 +69,30 @@ describe('CustomizationPanel', () => {
     panel.show({ id: 'bed-1', type: 'bed', variant: 'double-wood' }, false);
     panel.hide();
     expect(panel.isVisible).toBe(false);
+  });
+
+  it('shows add item button', () => {
+    panel.show({ id: 'bed-1', type: 'bed', variant: 'double-wood' }, false);
+    expect(container.querySelector('.custom-add-btn')).not.toBeNull();
+  });
+
+  it('opens catalog browser when add item clicked', () => {
+    panel.setCatalog(new FurnitureCatalog());
+    panel.show({ id: 'bed-1', type: 'bed', variant: 'double-wood' }, false);
+    container.querySelector('.custom-add-btn').click();
+    expect(container.querySelector('.catalog-panel')).not.toBeNull();
+    expect(container.querySelectorAll('.catalog-tab').length).toBe(4);
+  });
+
+  it('calls onAddItem when catalog item clicked', () => {
+    const callback = vi.fn();
+    panel.onAddItem = callback;
+    panel.setCatalog(new FurnitureCatalog());
+    panel.show({ id: 'bed-1', type: 'bed', variant: 'double-wood' }, false);
+    container.querySelector('.custom-add-btn').click();
+    container.querySelector('.catalog-item').click();
+    expect(callback).toHaveBeenCalled();
+    expect(callback.mock.calls[0][0].id).toBeDefined();
+    expect(callback.mock.calls[0][0].type).toBeDefined();
   });
 });
