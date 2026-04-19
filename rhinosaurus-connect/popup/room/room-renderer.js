@@ -1,4 +1,5 @@
 import { ROOM_DIMENSIONS } from '../../shared/constants.js';
+import { SpeechBubbleQueue } from './speech-bubble.js';
 
 const DEFAULT_HITBOX_SIZE = { width: 48, height: 48 };
 
@@ -12,10 +13,15 @@ export class RoomRenderer {
     this.spriteLoader = null;
     this.hoveredItem = null;
     this.effectLayers = [];
+    this.avatars = new Map();
   }
 
   setSpriteLoader(loader) {
     this.spriteLoader = loader;
+  }
+
+  addAvatar(userId, animator, controller) {
+    this.avatars.set(userId, { animator, controller, bubbleQueue: new SpeechBubbleQueue() });
   }
 
   markDirty() {
@@ -53,18 +59,25 @@ export class RoomRenderer {
   renderFrame() {
     if (!this.dirty) return;
     this.dirty = false;
-
     const { width, height } = ROOM_DIMENSIONS;
     this.ctx.clearRect(0, 0, width, height);
-
     this.drawFloor();
     this.drawWalls();
-
-    const sorted = this.getSortedFurniture();
-    for (const item of sorted) {
-      this.drawFurnitureItem(item);
+    const drawables = [];
+    for (const item of this.roomState.furniture) {
+      drawables.push({ type: 'furniture', data: item, y: item.y });
     }
-
+    for (const [userId, avatar] of this.avatars) {
+      drawables.push({ type: 'avatar', data: avatar, userId, y: avatar.controller.y });
+    }
+    drawables.sort((a, b) => a.y - b.y);
+    for (const d of drawables) {
+      if (d.type === 'furniture') {
+        this.drawFurnitureItem(d.data);
+      } else {
+        this.drawAvatar(d.data);
+      }
+    }
     for (const effect of this.effectLayers) {
       effect.draw(this.ctx);
     }
@@ -101,6 +114,13 @@ export class RoomRenderer {
     if (this.hoveredItem === item && item.interactive) {
       this.drawHoverGlow(item);
     }
+  }
+
+  drawAvatar(avatar) {
+    const { animator, controller, bubbleQueue } = avatar;
+    const scale = 3;
+    animator.draw(this.ctx, controller.x, controller.y, scale);
+    bubbleQueue.draw(this.ctx);
   }
 
   drawHoverGlow(item) {
