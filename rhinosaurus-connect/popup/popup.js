@@ -2,11 +2,15 @@ import { RoomRenderer } from './room/room-renderer.js';
 import { RoomState } from './room/room-state.js';
 import { AuthUI } from './auth.js';
 
+console.log('[popup] script loaded');
+
 const screens = {
   login: document.getElementById('login-screen'),
   pairing: document.getElementById('pairing-screen'),
   room: document.getElementById('room-screen'),
 };
+
+console.log('[popup] screens:', Object.keys(screens).map(k => `${k}=${!!screens[k]}`).join(', '));
 
 function showScreen(name) {
   for (const screen of Object.values(screens)) {
@@ -19,19 +23,24 @@ const authUI = new AuthUI(showScreen);
 authUI.init();
 
 async function init() {
-  const session = await chrome.runtime.sendMessage({ type: 'GET_SESSION' });
-  if (!session?.session) {
+  try {
+    const session = await chrome.runtime.sendMessage({ type: 'GET_SESSION' });
+    if (!session?.session) {
+      showScreen('login');
+      return;
+    }
+
+    const pair = await chrome.runtime.sendMessage({ type: 'GET_PAIR' });
+    if (!pair?.pair) {
+      showScreen('pairing');
+      return;
+    }
+
+    initRoom();
+  } catch (err) {
+    console.error('Init failed:', err);
     showScreen('login');
-    return;
   }
-
-  const pair = await chrome.runtime.sendMessage({ type: 'GET_PAIR' });
-  if (!pair?.pair) {
-    showScreen('pairing');
-    return;
-  }
-
-  initRoom();
 }
 
 function initRoom() {

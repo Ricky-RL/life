@@ -5,15 +5,30 @@ export class AuthUI {
   }
 
   init() {
-    document.getElementById('login-btn')?.addEventListener('click', () => this.handleLogin());
+    const loginBtn = document.getElementById('login-btn');
+    console.log('[AuthUI] init called, login-btn element:', loginBtn);
+    if (loginBtn) {
+      loginBtn.addEventListener('click', () => {
+        console.log('[AuthUI] login-btn clicked');
+        this.handleLogin();
+      });
+    }
     document.getElementById('generate-code-btn')?.addEventListener('click', () => this.handleGenerateCode());
     document.getElementById('submit-code-btn')?.addEventListener('click', () => this.handleSubmitCode());
     document.getElementById('copy-code-btn')?.addEventListener('click', () => this.handleCopyCode());
   }
 
   async handleLogin() {
+    const loginBtn = document.getElementById('login-btn');
     try {
+      if (loginBtn) loginBtn.disabled = true;
+      console.log('Sending SIGN_IN message...');
       const response = await chrome.runtime.sendMessage({ type: 'SIGN_IN' });
+      console.log('SIGN_IN response:', response);
+      if (response?.error) {
+        this.showLoginError(response.error);
+        return;
+      }
       if (response?.session) {
         const pair = await chrome.runtime.sendMessage({ type: 'GET_PAIR' });
         if (pair?.pair) {
@@ -21,9 +36,14 @@ export class AuthUI {
         } else {
           this.onScreenChange('pairing');
         }
+      } else {
+        this.showLoginError('No session returned. Check service worker logs.');
       }
     } catch (err) {
       console.error('Login failed:', err);
+      this.showLoginError(err.message || 'Login failed');
+    } finally {
+      if (loginBtn) loginBtn.disabled = false;
     }
   }
 
@@ -95,6 +115,15 @@ export class AuthUI {
       errorEl.textContent = message;
       errorEl.classList.remove('hidden');
       setTimeout(() => errorEl.classList.add('hidden'), 5000);
+    }
+  }
+
+  showLoginError(message) {
+    const errorEl = document.getElementById('login-error');
+    if (errorEl) {
+      errorEl.textContent = message;
+      errorEl.classList.remove('hidden');
+      setTimeout(() => errorEl.classList.add('hidden'), 8000);
     }
   }
 

@@ -22,7 +22,12 @@ async function loadPairData() {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  handleMessage(message).then(sendResponse);
+  handleMessage(message)
+    .then(sendResponse)
+    .catch((err) => {
+      console.error(`Error handling ${message.type}:`, err);
+      sendResponse({ error: err.message });
+    });
   return true;
 });
 

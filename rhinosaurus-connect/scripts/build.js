@@ -1,5 +1,5 @@
 import esbuild from 'esbuild';
-import { cpSync, mkdirSync } from 'fs';
+import { cpSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -8,15 +8,7 @@ const ROOT = resolve(__dirname, '..');
 const DIST = resolve(ROOT, 'dist');
 const watch = process.argv.includes('--watch');
 
-const entryPoints = [
-  'background/service-worker.js',
-  'popup/popup.js',
-  'content/content.js',
-  'options/options.js',
-];
-
 const staticFiles = [
-  'manifest.json',
   'popup/popup.html',
   'popup/popup.css',
   'options/options.html',
@@ -37,20 +29,34 @@ function copyStatic() {
   for (const dir of staticDirs) {
     cpSync(resolve(ROOT, dir), resolve(DIST, dir), { recursive: true });
   }
+
+  const manifest = JSON.parse(readFileSync(resolve(ROOT, 'manifest.json'), 'utf-8'));
+  delete manifest.background.type;
+  mkdirSync(DIST, { recursive: true });
+  writeFileSync(resolve(DIST, 'manifest.json'), JSON.stringify(manifest, null, 2));
 }
 
 async function build() {
   copyStatic();
 
-  const ctx = await esbuild.context({
-    entryPoints: entryPoints.map(e => resolve(ROOT, e)),
+  const sharedOptions = {
     outbase: ROOT,
     outdir: DIST,
     bundle: true,
-    format: 'esm',
     target: ['chrome120'],
     minify: !watch,
     sourcemap: watch ? 'inline' : false,
+  };
+
+  const ctx = await esbuild.context({
+    ...sharedOptions,
+    entryPoints: [
+      resolve(ROOT, 'background/service-worker.js'),
+      resolve(ROOT, 'popup/popup.js'),
+      resolve(ROOT, 'content/content.js'),
+      resolve(ROOT, 'options/options.js'),
+    ],
+    format: 'iife',
   });
 
   if (watch) {
