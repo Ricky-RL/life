@@ -11,6 +11,8 @@ let tabTracker = null;
 let eventsChannel = null;
 let partnerActivity = null;
 
+console.log('[SW] Service worker loaded');
+
 function initTabTracker() {
   if (!supabase || !currentPair) return;
 
@@ -76,12 +78,13 @@ async function startup() {
 
 chrome.runtime.onInstalled.addListener(() => {
   console.log('Rhinosaurus Connect installed');
-  startup();
 });
 
 chrome.runtime.onStartup.addListener(() => {
-  startup();
+  console.log('[SW] Browser startup');
 });
+
+startup();
 
 async function loadPairData() {
   if (!currentSession) return;
