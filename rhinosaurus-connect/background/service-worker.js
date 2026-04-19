@@ -1,9 +1,49 @@
-import { restoreSession } from './supabase-client.js';
+import { restoreSession, supabase } from './supabase-client.js';
 import { AuthManager } from './auth-manager.js';
+import { TabTracker } from './tab-tracker.js';
+import { REALTIME_EVENTS } from '../shared/constants.js';
+import { getEventsChannelName } from '../shared/supabase-helpers.js';
 
 const authManager = new AuthManager();
 let currentSession = null;
 let currentPair = null;
+let tabTracker = null;
+let eventsChannel = null;
+
+function initTabTracker() {
+  if (!supabase || !currentPair) return;
+
+  eventsChannel = supabase.channel(getEventsChannelName(currentPair.id));
+  eventsChannel.subscribe();
+
+  tabTracker = new TabTracker((activity) => {
+    if (eventsChannel) {
+      eventsChannel.send({
+        type: 'broadcast',
+        event: REALTIME_EVENTS.ACTIVITY_UPDATE,
+        payload: {
+          user_id: currentSession?.user?.id,
+          activity,
+        },
+      });
+    }
+  });
+
+  tabTracker.onYouTubeChange = (action) => {
+    if (eventsChannel) {
+      eventsChannel.send({
+        type: 'broadcast',
+        event: 'avatar_auto_move',
+        payload: {
+          user_id: currentSession?.user?.id,
+          target: action === 'entered' ? 'tv' : 'previous',
+        },
+      });
+    }
+  };
+
+  tabTracker.init();
+}
 
 chrome.runtime.onInstalled.addListener(() => {
   console.log('Rhinosaurus Connect installed');
@@ -13,6 +53,9 @@ chrome.runtime.onStartup.addListener(async () => {
   currentSession = await restoreSession();
   if (currentSession) {
     await loadPairData();
+    if (currentPair) {
+      initTabTracker();
+    }
   }
 });
 
@@ -50,6 +93,9 @@ async function handleMessage(message) {
       try {
         const pairId = await authManager.claimPairCode(message.code, currentSession.user.id);
         await loadPairData();
+        if (currentPair) {
+          initTabTracker();
+        }
         return { pairId };
       } catch (err) {
         return { error: err.message };
@@ -77,6 +123,18 @@ async function handleMessage(message) {
       if (currentPair) {
         await authManager.unpair(currentPair.id);
         currentPair = null;
+        if (eventsChannel) {
+          eventsChannel.unsubscribe();
+          eventsChannel = null;
+        }
+        tabTracker = null;
+      }
+      return { ok: true };
+    }
+
+    case 'TRACKING_TOGGLED': {
+      if (tabTracker) {
+        tabTracker.setTrackingEnabled(message.enabled);
       }
       return { ok: true };
     }
