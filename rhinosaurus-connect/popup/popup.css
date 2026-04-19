@@ -170,6 +170,18 @@ body {
   background: var(--wood-dark);
 }
 
+#user-bar {
+  width: 100%;
+  padding: 4px 12px;
+  background: var(--wood-dark);
+  color: var(--parchment-dark);
+  font-family: 'Silkscreen', monospace;
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  text-align: right;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
 #room-canvas {
   image-rendering: pixelated;
   image-rendering: crisp-edges;
