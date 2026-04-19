@@ -1,3 +1,25 @@
+@import url('https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Patrick+Hand&display=swap');
+
+:root {
+  --parchment: #F5E6C8;
+  --parchment-dark: #E8D5AD;
+  --parchment-deeper: #D4C094;
+  --ink: #3B2F20;
+  --ink-light: #6B5B47;
+  --ink-faint: #9B8B77;
+  --rose: #C25A6E;
+  --rose-soft: #D4808F;
+  --rose-glow: #E8A0AD;
+  --wood: #8B6B4A;
+  --wood-dark: #6B4B2A;
+  --wood-light: #A8885E;
+  --cream: #FFF8EC;
+  --pixel-border: 3px solid var(--ink);
+  --pixel-border-light: 2px solid var(--ink-light);
+  --shadow-warm: 4px 4px 0px rgba(59, 47, 32, 0.25);
+  --shadow-soft: 2px 2px 0px rgba(59, 47, 32, 0.15);
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -8,9 +30,10 @@ body {
   width: 400px;
   height: 500px;
   overflow: hidden;
-  font-family: 'Segoe UI', system-ui, sans-serif;
-  background: #1a1a2e;
-  color: #e0e0e0;
+  font-family: 'Patrick Hand', cursive;
+  background: var(--parchment);
+  color: var(--ink);
+  image-rendering: pixelated;
 }
 
 #app {
@@ -18,6 +41,15 @@ body {
   height: 100%;
   display: flex;
   flex-direction: column;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 23px,
+      rgba(59, 47, 32, 0.03) 23px,
+      rgba(59, 47, 32, 0.03) 24px
+    ),
+    var(--parchment);
 }
 
 .screen {
@@ -34,99 +66,108 @@ body {
   display: none !important;
 }
 
-/* Login screen */
+/* ── Login screen ── */
 #login-screen {
   gap: 24px;
-  background: linear-gradient(135deg, #1a1a2e 0%, #2d1b3e 100%);
+  background:
+    radial-gradient(ellipse at 50% 30%, rgba(194, 90, 110, 0.08) 0%, transparent 60%),
+    var(--parchment);
 }
 
 .logo-container h1 {
-  font-size: 20px;
-  color: #ff6b9d;
+  font-family: 'Silkscreen', monospace;
+  font-size: 18px;
+  color: var(--rose);
   text-align: center;
+  text-shadow: 2px 2px 0 rgba(194, 90, 110, 0.2);
+  letter-spacing: 1px;
 }
 
 .btn-primary {
   padding: 12px 24px;
-  background: #ff6b9d;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
+  background: var(--rose);
+  color: var(--cream);
+  border: var(--pixel-border);
+  border-color: var(--wood-dark);
+  border-radius: 0;
+  font-family: 'Silkscreen', monospace;
+  font-size: 12px;
   cursor: pointer;
-  transition: background 0.2s;
+  box-shadow: var(--shadow-warm);
+  transition: transform 0.1s;
+  text-transform: lowercase;
 }
 
 .btn-primary:hover {
-  background: #ff5588;
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 rgba(59, 47, 32, 0.25);
+}
+
+.btn-primary:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
 }
 
 .btn-small {
   padding: 4px 12px;
-  background: #4a4a6a;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  font-size: 12px;
+  background: var(--parchment-dark);
+  color: var(--ink);
+  border: 2px solid var(--ink-light);
+  border-radius: 0;
+  font-family: 'Silkscreen', monospace;
+  font-size: 10px;
   cursor: pointer;
+  box-shadow: var(--shadow-soft);
 }
 
-/* Pairing screen */
+/* ── Pairing screen ── */
 #pairing-screen {
   gap: 12px;
 }
 
 .pair-code {
-  font-size: 32px;
+  font-size: 28px;
   font-weight: bold;
-  letter-spacing: 4px;
-  color: #ff6b9d;
-  font-family: monospace;
+  letter-spacing: 6px;
+  color: var(--rose);
+  font-family: 'Silkscreen', monospace;
+  text-shadow: 2px 2px 0 rgba(194, 90, 110, 0.15);
 }
 
 .divider {
-  color: #888;
-  font-size: 12px;
+  color: var(--ink-faint);
+  font-size: 13px;
   margin: 8px 0;
+  font-style: italic;
 }
 
 #code-input {
   padding: 12px;
-  font-size: 24px;
+  font-size: 22px;
   text-align: center;
-  letter-spacing: 4px;
+  letter-spacing: 6px;
   text-transform: uppercase;
-  background: #2a2a4a;
-  border: 2px solid #4a4a6a;
-  border-radius: 8px;
-  color: white;
+  background: var(--cream);
+  border: var(--pixel-border);
+  border-radius: 0;
+  color: var(--ink);
   width: 200px;
-  font-family: monospace;
+  font-family: 'Silkscreen', monospace;
+  box-shadow: inset 2px 2px 0 rgba(59, 47, 32, 0.1);
 }
 
 .error {
-  color: #ff4444;
-  font-size: 12px;
+  color: var(--rose);
+  font-size: 13px;
+  font-family: 'Patrick Hand', cursive;
 }
 
-.btn-link {
-  background: none;
-  border: none;
-  color: #888;
-  font-size: 12px;
-  cursor: pointer;
-  margin-top: 8px;
-}
-
-.btn-link:hover {
-  color: #ff6b9d;
-}
-
-/* Room screen */
+/* ── Room screen ── */
 #room-screen {
   padding: 0;
   justify-content: flex-start;
   position: relative;
+  background: var(--wood-dark);
 }
 
 #room-canvas {
@@ -134,8 +175,9 @@ body {
   image-rendering: crisp-edges;
   width: 400px;
   height: 440px;
-  background: #2a1a0a;
+  background: var(--wood);
   cursor: default;
+  border-bottom: 4px solid var(--wood-dark);
 }
 
 #overlay-container {
@@ -143,20 +185,288 @@ body {
   top: 0;
   left: 0;
   width: 100%;
-  height: calc(100% - 50px);
+  height: calc(100% - 54px);
   z-index: 10;
+  overflow-y: auto;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 27px,
+      rgba(59, 47, 32, 0.05) 27px,
+      rgba(59, 47, 32, 0.05) 28px
+    ),
+    radial-gradient(ellipse at 50% 0%, rgba(194, 90, 110, 0.06) 0%, transparent 50%),
+    var(--parchment);
 }
 
-/* Toolbar */
+/* ── Calendar overlay ── */
+.calendar-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px 12px;
+  border-bottom: 3px solid var(--ink);
+  background:
+    linear-gradient(180deg, rgba(255, 248, 236, 0.5) 0%, transparent 100%);
+}
+
+.calendar-header span {
+  font-family: 'Silkscreen', monospace;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: 1px;
+  text-transform: lowercase;
+}
+
+.calendar-back-btn {
+  background: var(--parchment-dark);
+  border: 2px solid var(--ink);
+  color: var(--ink);
+  font-family: 'Silkscreen', monospace;
+  font-size: 10px;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 0;
+  box-shadow: var(--shadow-soft);
+  transition: transform 0.1s;
+}
+
+.calendar-back-btn:hover {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 rgba(59, 47, 32, 0.15);
+  background: var(--parchment-deeper);
+}
+
+.calendar-anniversary {
+  text-align: center;
+  padding: 20px 16px 18px;
+  font-family: 'Patrick Hand', cursive;
+  font-size: 22px;
+  color: var(--rose);
+  font-weight: normal;
+  background:
+    radial-gradient(ellipse at 50% 50%, rgba(194, 90, 110, 0.08) 0%, transparent 70%),
+    var(--cream);
+  border-bottom: 2px dashed var(--ink-faint);
+  position: relative;
+  text-shadow: 1px 1px 0 rgba(194, 90, 110, 0.15);
+}
+
+.calendar-dates {
+  padding: 6px 0;
+}
+
+.calendar-section {
+  padding: 0 16px 6px;
+}
+
+.calendar-section h3 {
+  font-family: 'Silkscreen', monospace;
+  font-size: 9px;
+  text-transform: lowercase;
+  letter-spacing: 2px;
+  color: var(--ink-faint);
+  padding: 12px 0 6px;
+  border-bottom: 1px dotted var(--ink-faint);
+  margin-bottom: 2px;
+}
+
+.calendar-date-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 10px;
+  cursor: pointer;
+  transition: background 0.1s;
+  border-bottom: 1px solid rgba(59, 47, 32, 0.06);
+  position: relative;
+}
+
+.calendar-date-row:hover {
+  background: rgba(194, 90, 110, 0.06);
+}
+
+.calendar-date-row:hover::before {
+  content: '>';
+  position: absolute;
+  left: 0;
+  font-family: 'Silkscreen', monospace;
+  font-size: 10px;
+  color: var(--rose);
+}
+
+.calendar-date-label {
+  font-family: 'Patrick Hand', cursive;
+  font-size: 17px;
+  color: var(--ink);
+}
+
+.calendar-date-distance {
+  font-family: 'Silkscreen', monospace;
+  font-size: 9px;
+  color: var(--ink-light);
+  background: var(--parchment-dark);
+  padding: 3px 8px;
+  border: 1px solid var(--ink-faint);
+}
+
+.calendar-add-btn {
+  display: block;
+  width: calc(100% - 32px);
+  margin: 14px 16px;
+  padding: 11px;
+  background: var(--cream);
+  color: var(--rose);
+  border: 2px dashed var(--rose-soft);
+  border-radius: 0;
+  font-family: 'Silkscreen', monospace;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.1s;
+  box-shadow: var(--shadow-soft);
+  text-transform: lowercase;
+}
+
+.calendar-add-btn:hover {
+  background: var(--parchment-dark);
+  border-color: var(--rose);
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 rgba(59, 47, 32, 0.15);
+}
+
+.calendar-form {
+  padding: 16px;
+  margin: 0 16px 16px;
+  border: 2px solid var(--ink);
+  background: var(--cream);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: var(--shadow-warm);
+  position: relative;
+}
+
+.calendar-form::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--rose);
+}
+
+.calendar-label-input,
+.calendar-date-input {
+  padding: 10px 12px;
+  background: var(--parchment);
+  border: 2px solid var(--ink-light);
+  border-radius: 0;
+  color: var(--ink);
+  font-family: 'Patrick Hand', cursive;
+  font-size: 16px;
+  box-shadow: inset 2px 2px 0 rgba(59, 47, 32, 0.08);
+}
+
+.calendar-label-input:focus,
+.calendar-date-input:focus {
+  outline: none;
+  border-color: var(--rose);
+  background: var(--cream);
+}
+
+.calendar-label-input::placeholder {
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
+.calendar-form label {
+  font-family: 'Patrick Hand', cursive;
+  font-size: 15px;
+  color: var(--ink-light);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.calendar-form label input[type="checkbox"] {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--ink-light);
+  background: var(--parchment);
+  cursor: pointer;
+  position: relative;
+}
+
+.calendar-form label input[type="checkbox"]:checked {
+  background: var(--rose-soft);
+  border-color: var(--rose);
+}
+
+.calendar-form label input[type="checkbox"]:checked::after {
+  content: 'x';
+  font-family: 'Silkscreen', monospace;
+  font-size: 10px;
+  color: var(--cream);
+  position: absolute;
+  top: -1px;
+  left: 2px;
+}
+
+.calendar-save-btn {
+  padding: 10px;
+  background: var(--rose);
+  color: var(--cream);
+  border: 2px solid var(--wood-dark);
+  border-radius: 0;
+  font-family: 'Silkscreen', monospace;
+  font-size: 11px;
+  cursor: pointer;
+  box-shadow: var(--shadow-warm);
+  transition: transform 0.1s;
+  text-transform: lowercase;
+}
+
+.calendar-save-btn:hover {
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 rgba(59, 47, 32, 0.25);
+}
+
+.calendar-delete-btn {
+  padding: 10px;
+  background: var(--parchment);
+  color: var(--rose);
+  border: 2px solid var(--rose);
+  border-radius: 0;
+  font-family: 'Silkscreen', monospace;
+  font-size: 11px;
+  cursor: pointer;
+  box-shadow: var(--shadow-soft);
+  transition: transform 0.1s;
+  text-transform: lowercase;
+}
+
+.calendar-delete-btn:hover {
+  background: rgba(194, 90, 110, 0.1);
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 rgba(59, 47, 32, 0.15);
+}
+
+/* ── Toolbar ── */
 #toolbar {
   display: flex;
   align-items: center;
   justify-content: space-around;
   width: 100%;
-  height: 50px;
-  background: #1a1a2e;
-  border-top: 1px solid #2a2a4a;
+  height: 54px;
+  background: var(--wood-dark);
+  border-top: 3px solid var(--ink);
   padding: 0 8px;
+  box-shadow: inset 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 .toolbar-btn {
@@ -164,31 +474,56 @@ body {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 8px;
-  border-radius: 8px;
-  transition: background 0.2s;
+  padding: 8px 10px;
+  border-radius: 0;
+  transition: transform 0.1s;
 }
 
 .toolbar-btn:hover {
-  background: #2a2a4a;
+  transform: scale(1.15);
+}
+
+.toolbar-btn:active {
+  transform: scale(0.95);
 }
 
 .toolbar-icon {
   font-size: 20px;
+  filter: drop-shadow(1px 1px 0 rgba(0,0,0,0.3));
 }
 
 .badge {
   position: absolute;
-  top: 2px;
-  right: 2px;
-  background: #ff4444;
-  color: white;
-  font-size: 10px;
-  min-width: 16px;
-  height: 16px;
-  border-radius: 8px;
+  top: 1px;
+  right: 1px;
+  background: var(--rose);
+  color: var(--cream);
+  font-family: 'Silkscreen', monospace;
+  font-size: 8px;
+  min-width: 14px;
+  height: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 4px;
+  padding: 0 3px;
+  border: 2px solid var(--wood-dark);
+}
+
+/* ── Scrollbar ── */
+#overlay-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+#overlay-container::-webkit-scrollbar-track {
+  background: var(--parchment-dark);
+  border-left: 1px solid var(--ink-faint);
+}
+
+#overlay-container::-webkit-scrollbar-thumb {
+  background: var(--wood-light);
+  border: 1px solid var(--ink-light);
+}
+
+#overlay-container::-webkit-scrollbar-thumb:hover {
+  background: var(--wood);
 }

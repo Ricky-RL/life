@@ -1,16 +1,14 @@
 import { RoomRenderer } from './room/room-renderer.js';
 import { RoomState } from './room/room-state.js';
-import { AuthUI } from './auth.js';
-
-console.log('[popup] script loaded');
+import { DateService } from './calendar/date-service.js';
+import { CalendarOverlay } from './calendar/calendar-overlay.js';
+import { CalendarGlow } from './room/calendar-glow.js';
 
 const screens = {
   login: document.getElementById('login-screen'),
   pairing: document.getElementById('pairing-screen'),
   room: document.getElementById('room-screen'),
 };
-
-console.log('[popup] screens:', Object.keys(screens).map(k => `${k}=${!!screens[k]}`).join(', '));
 
 function showScreen(name) {
   for (const screen of Object.values(screens)) {
@@ -19,36 +17,35 @@ function showScreen(name) {
   screens[name].classList.remove('hidden');
 }
 
-const authUI = new AuthUI(showScreen);
-authUI.init();
+let calendarOverlay = null;
+let dateService = null;
+const calendarGlow = new CalendarGlow();
 
-async function init() {
-  try {
-    const session = await chrome.runtime.sendMessage({ type: 'GET_SESSION' });
-    if (!session?.session) {
-      showScreen('login');
-      return;
-    }
+async function setupCalendar(supabase, pairId, userId, anniversaryDate) {
+  dateService = new DateService(supabase, pairId, userId);
+  const overlayContainer = document.getElementById('overlay-container');
+  calendarOverlay = new CalendarOverlay(overlayContainer, dateService, anniversaryDate);
 
-    const pair = await chrome.runtime.sendMessage({ type: 'GET_PAIR' });
-    if (!pair?.pair) {
-      showScreen('pairing');
-      return;
-    }
-
-    initRoom();
-  } catch (err) {
-    console.error('Init failed:', err);
-    showScreen('login');
-  }
+  const dates = await dateService.fetchDates();
+  const milestones = [
+    ...dateService.checkAnniversaryMilestones(anniversaryDate),
+    ...dateService.checkDateMilestones(dates),
+  ];
+  calendarGlow.setMilestones(milestones);
 }
 
-function initRoom() {
-  showScreen('room');
-
+async function init() {
   const canvas = document.getElementById('room-canvas');
   const roomState = new RoomState();
   const renderer = new RoomRenderer(canvas, roomState);
+
+  renderer.addEffect({
+    draw(ctx) {
+      const cal = roomState.furniture.find(f => f.type === 'calendar');
+      if (cal) calendarGlow.draw(ctx, cal.x, cal.y, performance.now());
+      if (calendarGlow.isActive) renderer.markDirty();
+    },
+  });
 
   function canvasCoords(e) {
     const rect = canvas.getBoundingClientRect();
@@ -93,10 +90,53 @@ function initRoom() {
     console.log('Chat (not yet implemented)');
   });
 
+  showScreen('room');
   renderer.startRenderLoop();
+
+  // TODO: remove once Phase 1A auth is wired up
+  setupCalendarMock();
+}
+
+function setupCalendarMock() {
+  const mockService = {
+    fetchDates: () => Promise.resolve([
+      { id: '1', label: 'Next Visit', date: '2026-05-10', is_countdown: true, is_recurring: false },
+      { id: '2', label: 'Her Birthday', date: '2025-08-22', is_countdown: true, is_recurring: true },
+      { id: '3', label: 'First Date', date: '2024-06-15', is_countdown: false, is_recurring: false },
+    ]),
+    addDate: (label, date, isCountdown, isRecurring) =>
+      Promise.resolve({ id: String(Date.now()), label, date, is_countdown: isCountdown, is_recurring: isRecurring }),
+    deleteDate: () => Promise.resolve(),
+    updateDate: () => Promise.resolve(),
+    getAnniversaryDays: (d) => d ? Math.floor((Date.now() - new Date(d).getTime()) / 86400000) : null,
+    sortDates: (dates) => {
+      const now = new Date();
+      const upcoming = [];
+      const past = [];
+      for (const d of dates) {
+        const diff = Math.round((new Date(d.date) - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
+        const entry = { ...d, effectiveDate: d.date, days: diff };
+        if (diff >= 0) upcoming.push(entry);
+        else past.push(entry);
+      }
+      upcoming.sort((a, b) => a.days - b.days);
+      past.sort((a, b) => b.days - a.days);
+      return { upcoming, past };
+    },
+    checkAnniversaryMilestones: () => [],
+    checkDateMilestones: () => [],
+  };
+
+  const overlayContainer = document.getElementById('overlay-container');
+  calendarOverlay = new CalendarOverlay(overlayContainer, mockService, '2024-06-15');
+  calendarOverlay.onClose = () => {};
 }
 
 function handleInteraction(item) {
+  if (item.interaction === 'dates' && calendarOverlay) {
+    calendarOverlay.open();
+    return;
+  }
   console.log('Interaction:', item.interaction, item.id);
 }
 
