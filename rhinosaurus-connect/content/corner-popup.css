@@ -1,0 +1,59 @@
+#rhinosaurus-notification {
+  position: fixed;
+  bottom: 20px;
+  right: -320px;
+  z-index: 2147483647;
+  transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+#rhinosaurus-notification.rhino-visible {
+  right: 20px;
+}
+
+.rhino-notif-container {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #1a1a2e;
+  border: 2px solid #ff6b9d;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  max-width: 300px;
+  cursor: pointer;
+}
+
+.rhino-avatar-placeholder {
+  width: 64px;
+  height: 96px;
+  background: #2a2a4a;
+  border-radius: 4px;
+  flex-shrink: 0;
+  image-rendering: pixelated;
+}
+
+.rhino-speech-bubble {
+  position: relative;
+  background: #2a2a4a;
+  border-radius: 8px;
+  padding: 8px 12px;
+  max-width: 200px;
+}
+
+.rhino-speech-bubble::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  bottom: 12px;
+  border-width: 6px;
+  border-style: solid;
+  border-color: transparent #2a2a4a transparent transparent;
+}
+
+.rhino-message {
+  color: #e0e0e0;
+  font-size: 13px;
+  line-height: 1.4;
+  word-break: break-word;
+}
