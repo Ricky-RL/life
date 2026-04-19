@@ -92,6 +92,44 @@ async function init() {
 
   showScreen('room');
   renderer.startRenderLoop();
+
+  // TODO: remove once Phase 1A auth is wired up
+  setupCalendarMock();
+}
+
+function setupCalendarMock() {
+  const mockService = {
+    fetchDates: () => Promise.resolve([
+      { id: '1', label: 'Next Visit', date: '2026-05-10', is_countdown: true, is_recurring: false },
+      { id: '2', label: 'Her Birthday', date: '2025-08-22', is_countdown: true, is_recurring: true },
+      { id: '3', label: 'First Date', date: '2024-06-15', is_countdown: false, is_recurring: false },
+    ]),
+    addDate: (label, date, isCountdown, isRecurring) =>
+      Promise.resolve({ id: String(Date.now()), label, date, is_countdown: isCountdown, is_recurring: isRecurring }),
+    deleteDate: () => Promise.resolve(),
+    updateDate: () => Promise.resolve(),
+    getAnniversaryDays: (d) => d ? Math.floor((Date.now() - new Date(d).getTime()) / 86400000) : null,
+    sortDates: (dates) => {
+      const now = new Date();
+      const upcoming = [];
+      const past = [];
+      for (const d of dates) {
+        const diff = Math.round((new Date(d.date) - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
+        const entry = { ...d, effectiveDate: d.date, days: diff };
+        if (diff >= 0) upcoming.push(entry);
+        else past.push(entry);
+      }
+      upcoming.sort((a, b) => a.days - b.days);
+      past.sort((a, b) => b.days - a.days);
+      return { upcoming, past };
+    },
+    checkAnniversaryMilestones: () => [],
+    checkDateMilestones: () => [],
+  };
+
+  const overlayContainer = document.getElementById('overlay-container');
+  calendarOverlay = new CalendarOverlay(overlayContainer, mockService, '2024-06-15');
+  calendarOverlay.onClose = () => {};
 }
 
 function handleInteraction(item) {

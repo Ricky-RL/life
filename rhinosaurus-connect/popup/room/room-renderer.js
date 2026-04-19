@@ -96,8 +96,12 @@ export class RoomRenderer {
       }
     }
 
-    this.ctx.fillStyle = item.color || '#A0522D';
-    this.ctx.fillRect(item.x, item.y, DEFAULT_HITBOX_SIZE.width, DEFAULT_HITBOX_SIZE.height);
+    if (item.type === 'calendar') {
+      this.drawCalendarPlaceholder(item);
+    } else {
+      this.ctx.fillStyle = item.color || '#A0522D';
+      this.ctx.fillRect(item.x, item.y, DEFAULT_HITBOX_SIZE.width, DEFAULT_HITBOX_SIZE.height);
+    }
     if (this.hoveredItem === item && item.interactive) {
       this.drawHoverGlow(item);
     }
@@ -125,6 +129,39 @@ export class RoomRenderer {
       this.ctx.fillRect(windowItem.x + 28, windowItem.y + 16, 2, 2);
       this.ctx.fillRect(windowItem.x + 20, windowItem.y + 8, 2, 2);
     }
+  }
+
+  drawCalendarPlaceholder(item) {
+    const x = item.x;
+    const y = item.y;
+    const w = 48;
+    const h = 48;
+
+    this.ctx.fillStyle = '#FFF8EC';
+    this.ctx.fillRect(x, y, w, h);
+
+    this.ctx.fillStyle = '#C25A6E';
+    this.ctx.fillRect(x, y, w, 13);
+
+    this.ctx.fillStyle = '#FFF8EC';
+    this.ctx.font = 'bold 8px monospace';
+    this.ctx.textAlign = 'center';
+    const monthNames = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+    this.ctx.fillText(monthNames[new Date().getMonth()], x + w / 2, y + 10);
+
+    this.ctx.fillStyle = '#3B2F20';
+    this.ctx.font = 'bold 20px monospace';
+    this.ctx.fillText(String(new Date().getDate()), x + w / 2, y + 37);
+
+    this.ctx.strokeStyle = '#3B2F20';
+    this.ctx.lineWidth = 2;
+    this.ctx.strokeRect(x, y, w, h);
+
+    this.ctx.fillStyle = '#6B4B2A';
+    this.ctx.fillRect(x + 10, y - 4, 6, 8);
+    this.ctx.fillRect(x + 32, y - 4, 6, 8);
+
+    this.ctx.textAlign = 'start';
   }
 
   handleMouseMove(canvasX, canvasY) {
