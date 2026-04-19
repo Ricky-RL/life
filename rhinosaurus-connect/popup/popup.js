@@ -1,3 +1,4 @@
+import { AuthUI } from './auth.js';
 import { RoomRenderer } from './room/room-renderer.js';
 import { RoomState } from './room/room-state.js';
 import { DateService } from './calendar/date-service.js';
@@ -7,6 +8,9 @@ import { EditModeController } from './room/edit-mode.js';
 import { CustomizationPanel } from './room/customization-panel.js';
 import { FurnitureCatalog } from './room/furniture-catalog.js';
 import { ColorTinter } from './room/color-tinter.js';
+import { AvatarAnimator } from './room/avatar-animator.js';
+import { AvatarController } from './room/avatar-controller.js';
+import { AVATAR_SIZE, AVATAR_RENDER_SCALE } from '../shared/constants.js';
 
 const screens = {
   login: document.getElementById('login-screen'),
@@ -117,6 +121,38 @@ async function init() {
 
   setupCustomization();
 
+  function addPlaceholderAvatar(id, color, startX, startY) {
+    const animator = new AvatarAnimator();
+    const w = AVATAR_SIZE.width * AVATAR_RENDER_SCALE;
+    const h = AVATAR_SIZE.height * AVATAR_RENDER_SCALE;
+    animator.draw = (ctx, x, y, scale) => {
+      const sw = AVATAR_SIZE.width * scale;
+      const sh = AVATAR_SIZE.height * scale;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x + sw / 2, y + sh * 0.3, sw * 0.35, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillRect(x + sw * 0.2, y + sh * 0.5, sw * 0.6, sh * 0.45);
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(x + sw * 0.38, y + sh * 0.27, 3, 0, Math.PI * 2);
+      ctx.arc(x + sw * 0.62, y + sh * 0.27, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#333';
+      ctx.beginPath();
+      ctx.arc(x + sw * 0.38, y + sh * 0.27, 1.5, 0, Math.PI * 2);
+      ctx.arc(x + sw * 0.62, y + sh * 0.27, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    };
+    const controller = new AvatarController(id);
+    controller.setPosition(startX, startY);
+    renderer.addAvatar(id, animator, controller);
+    return controller;
+  }
+
+  const myAvatar = addPlaceholderAvatar('me', '#E8A0BF', 100, 280);
+  const partnerAvatar = addPlaceholderAvatar('partner', '#A0C4E8', 180, 280);
+
   canvas.addEventListener('click', (e) => {
     const { x, y } = canvasCoords(e);
 
@@ -211,10 +247,7 @@ async function init() {
     console.log('Chat (not yet implemented)');
   });
 
-  showScreen('room');
   renderer.startRenderLoop();
-
-  // TODO: remove once Phase 1A auth is wired up
   setupCalendarMock();
 }
 
@@ -261,4 +294,32 @@ function handleInteraction(item) {
   console.log('Interaction:', item.interaction, item.id);
 }
 
-init();
+async function boot() {
+  const authUI = new AuthUI((screen) => {
+    showScreen(screen);
+    if (screen === 'room') {
+      init();
+    }
+  });
+  authUI.init();
+
+  try {
+    const { session } = await chrome.runtime.sendMessage({ type: 'GET_SESSION' });
+    if (session) {
+      const { pair } = await chrome.runtime.sendMessage({ type: 'GET_PAIR' });
+      if (pair) {
+        showScreen('room');
+        init();
+      } else {
+        showScreen('pairing');
+      }
+    } else {
+      showScreen('login');
+    }
+  } catch (err) {
+    console.error('Boot session check failed:', err);
+    showScreen('login');
+  }
+}
+
+boot();
