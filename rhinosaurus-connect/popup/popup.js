@@ -19,16 +19,27 @@ async function init() {
   const roomState = new RoomState();
   const renderer = new RoomRenderer(canvas, roomState);
 
-  canvas.addEventListener('click', (e) => {
+  function canvasCoords(e) {
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY,
+    };
+  }
+
+  canvas.addEventListener('click', (e) => {
+    const { x, y } = canvasCoords(e);
     const hit = renderer.hitTest(x, y);
     if (hit) {
       handleInteraction(hit);
     }
+  });
+
+  canvas.addEventListener('mousemove', (e) => {
+    const { x, y } = canvasCoords(e);
+    renderer.handleMouseMove(x, y);
   });
 
   document.getElementById('settings-btn').addEventListener('click', () => {

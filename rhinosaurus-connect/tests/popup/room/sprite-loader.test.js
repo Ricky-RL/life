@@ -68,30 +68,46 @@ describe('SpriteLoader', () => {
 
   it('loads a sprite sheet image', async () => {
     const loader = new SpriteLoader();
-    const mockImg = { onload: null, onerror: null, src: '' };
-    vi.stubGlobal('Image', vi.fn(() => mockImg));
+    let instance;
+    const OrigImage = globalThis.Image;
+    globalThis.Image = class MockImage {
+      constructor() {
+        this.onload = null;
+        this.onerror = null;
+        this.src = '';
+        instance = this;
+      }
+    };
 
     const promise = loader.loadSheet('room', 'sprites/room.png');
-    mockImg.onload();
-    const result = await promise;
+    instance.onload();
+    await promise;
 
-    expect(loader.sheets.get('room')).toBe(mockImg);
-    expect(mockImg.src).toBe('sprites/room.png');
+    expect(loader.sheets.get('room')).toBe(instance);
+    expect(instance.src).toBe('sprites/room.png');
 
-    vi.unstubAllGlobals();
+    globalThis.Image = OrigImage;
   });
 
   it('rejects when sheet image fails to load', async () => {
     const loader = new SpriteLoader();
-    const mockImg = { onload: null, onerror: null, src: '' };
-    vi.stubGlobal('Image', vi.fn(() => mockImg));
+    let instance;
+    const OrigImage = globalThis.Image;
+    globalThis.Image = class MockImage {
+      constructor() {
+        this.onload = null;
+        this.onerror = null;
+        this.src = '';
+        instance = this;
+      }
+    };
 
     const promise = loader.loadSheet('room', 'sprites/room.png');
     const error = new Error('load failed');
-    mockImg.onerror(error);
+    instance.onerror(error);
 
     await expect(promise).rejects.toThrow('load failed');
 
-    vi.unstubAllGlobals();
+    globalThis.Image = OrigImage;
   });
 });
