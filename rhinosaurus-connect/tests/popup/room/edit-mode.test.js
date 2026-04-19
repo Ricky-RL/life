@@ -62,12 +62,14 @@ describe('EditModeController', () => {
     expect(controller.isDragging).toBe(true);
   });
 
-  it('moves item during drag', () => {
+  it('moves item during drag with grab offset', () => {
     controller.enter();
     controller.select('bed-1');
+    // bed-1 is at (40, 80), clicking at (50, 90) means offset is (10, 10)
     controller.startDrag(50, 90);
+    // dragging to (70, 110) should place item at (60, 100)
     controller.drag(70, 110);
-    expect(mockRoomState.updateFurniture).toHaveBeenCalledWith('bed-1', { x: 70, y: 110 });
+    expect(mockRoomState.updateFurniture).toHaveBeenCalledWith('bed-1', { x: 60, y: 100 });
   });
 
   it('broadcasts move on drag end', () => {
@@ -77,7 +79,7 @@ describe('EditModeController', () => {
     controller.drag(70, 110);
     controller.endDrag();
     expect(controller.isDragging).toBe(false);
-    expect(mockSync.broadcastFurnitureMove).toHaveBeenCalledWith('bed-1', { x: 70, y: 110 });
+    expect(mockSync.broadcastFurnitureMove).toHaveBeenCalledWith('bed-1', { x: 60, y: 100 });
   });
 
   it('changes variant and broadcasts', () => {

@@ -6,6 +6,7 @@ export class EditModeController {
     this.selectedId = null;
     this.isDragging = false;
     this.lastDragPos = null;
+    this.dragOffset = null;
     this.onSelectionChange = null;
     this.onModeChange = null;
   }
@@ -35,14 +36,19 @@ export class EditModeController {
 
   startDrag(x, y) {
     if (!this.selectedId) return;
+    const item = this.roomState.furniture.find(f => f.id === this.selectedId);
+    if (!item) return;
     this.isDragging = true;
-    this.lastDragPos = { x, y };
+    this.dragOffset = { x: x - item.x, y: y - item.y };
+    this.lastDragPos = { x: item.x, y: item.y };
   }
 
   drag(x, y) {
     if (!this.isDragging || !this.selectedId) return;
-    this.roomState.updateFurniture(this.selectedId, { x, y });
-    this.lastDragPos = { x, y };
+    const newX = x - this.dragOffset.x;
+    const newY = y - this.dragOffset.y;
+    this.roomState.updateFurniture(this.selectedId, { x: newX, y: newY });
+    this.lastDragPos = { x: newX, y: newY };
   }
 
   endDrag() {
@@ -53,6 +59,7 @@ export class EditModeController {
       this.sync.scheduleSave(this.roomState.toDbRecord());
     }
     this.lastDragPos = null;
+    this.dragOffset = null;
   }
 
   changeVariant(variant) {
