@@ -278,22 +278,35 @@ async function init() {
 }
 
 function setupCalendarMock() {
+  const dates = [
+    { id: '1', label: 'Next Visit', date: '2026-05-10', is_countdown: true, is_recurring: false },
+    { id: '2', label: 'Her Birthday', date: '2025-08-22', is_countdown: true, is_recurring: true },
+    { id: '3', label: 'First Date', date: '2024-06-15', is_countdown: false, is_recurring: false },
+  ];
+
   const mockService = {
-    fetchDates: () => Promise.resolve([
-      { id: '1', label: 'Next Visit', date: '2026-05-10', is_countdown: true, is_recurring: false },
-      { id: '2', label: 'Her Birthday', date: '2025-08-22', is_countdown: true, is_recurring: true },
-      { id: '3', label: 'First Date', date: '2024-06-15', is_countdown: false, is_recurring: false },
-    ]),
-    addDate: (label, date, isCountdown, isRecurring) =>
-      Promise.resolve({ id: String(Date.now()), label, date, is_countdown: isCountdown, is_recurring: isRecurring }),
-    deleteDate: () => Promise.resolve(),
-    updateDate: () => Promise.resolve(),
+    fetchDates: () => Promise.resolve([...dates]),
+    addDate: (label, date, isCountdown, isRecurring) => {
+      const newDate = { id: String(Date.now()), label, date, is_countdown: isCountdown, is_recurring: isRecurring };
+      dates.push(newDate);
+      return Promise.resolve(newDate);
+    },
+    deleteDate: (id) => {
+      const idx = dates.findIndex(d => d.id === id);
+      if (idx !== -1) dates.splice(idx, 1);
+      return Promise.resolve();
+    },
+    updateDate: (id, changes) => {
+      const idx = dates.findIndex(d => d.id === id);
+      if (idx !== -1) Object.assign(dates[idx], changes);
+      return Promise.resolve();
+    },
     getAnniversaryDays: (d) => d ? Math.floor((Date.now() - new Date(d).getTime()) / 86400000) : null,
-    sortDates: (dates) => {
+    sortDates: (list) => {
       const now = new Date();
       const upcoming = [];
       const past = [];
-      for (const d of dates) {
+      for (const d of list) {
         const diff = Math.round((new Date(d.date) - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
         const entry = { ...d, effectiveDate: d.date, days: diff };
         if (diff >= 0) upcoming.push(entry);
