@@ -11,6 +11,9 @@ const DEFAULT_FURNITURE = [
 ];
 
 export class RoomState {
+  static ESSENTIAL_TYPES = ['bed', 'tv', 'desk', 'calendar', 'makeup_stand'];
+  static MAX_FURNITURE = 30;
+
   constructor() {
     this.furniture = DEFAULT_FURNITURE.map(f => ({ ...f }));
     this.avatarPositions = {};
@@ -51,5 +54,32 @@ export class RoomState {
 
   markClean() {
     this.isDirty = false;
+  }
+
+  addFurniture(item) {
+    if (this.furniture.length >= RoomState.MAX_FURNITURE) {
+      return false;
+    }
+    this.furniture.push(item);
+    this.isDirty = true;
+    return true;
+  }
+
+  removeFurniture(furnitureId) {
+    const item = this.furniture.find(f => f.id === furnitureId);
+    if (!item) return false;
+    if (RoomState.ESSENTIAL_TYPES.includes(item.type)) return false;
+    this.furniture = this.furniture.filter(f => f.id !== furnitureId);
+    this.isDirty = true;
+    return true;
+  }
+
+  isEssential(furnitureId) {
+    const item = this.furniture.find(f => f.id === furnitureId);
+    return item ? RoomState.ESSENTIAL_TYPES.includes(item.type) : false;
+  }
+
+  getFurnitureById(furnitureId) {
+    return this.furniture.find(f => f.id === furnitureId) || null;
   }
 }
