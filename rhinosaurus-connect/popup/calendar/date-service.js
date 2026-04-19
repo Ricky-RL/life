@@ -1,57 +1,43 @@
 import { getDaysDifference, getNextOccurrence, normalizeToMidnightUTC } from '../../shared/date-utils.js';
 
+const STORAGE_KEY = 'tracked_dates';
+
 export class DateService {
-  constructor(supabase, pairId, userId) {
-    this.supabase = supabase;
-    this.pairId = pairId;
-    this.userId = userId;
-  }
+  constructor() {}
 
   async fetchDates() {
-    const { data, error } = await this.supabase
-      .from('tracked_dates')
-      .select('*')
-      .eq('pair_id', this.pairId)
-      .order('date', { ascending: true });
-
-    if (error) throw error;
-    return data || [];
+    const result = await chrome.storage.local.get(STORAGE_KEY);
+    return result[STORAGE_KEY] || [];
   }
 
   async addDate(label, date, isCountdown, isRecurring) {
-    const { data, error } = await this.supabase
-      .from('tracked_dates')
-      .insert({
-        pair_id: this.pairId,
-        label,
-        date,
-        is_countdown: isCountdown,
-        is_recurring: isRecurring,
-        created_by: this.userId,
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
+    const dates = await this.fetchDates();
+    const newDate = {
+      id: crypto.randomUUID(),
+      label,
+      date,
+      is_countdown: isCountdown,
+      is_recurring: isRecurring,
+      created_at: new Date().toISOString(),
+    };
+    dates.push(newDate);
+    await chrome.storage.local.set({ [STORAGE_KEY]: dates });
+    return newDate;
   }
 
   async updateDate(dateId, changes) {
-    const { error } = await this.supabase
-      .from('tracked_dates')
-      .update(changes)
-      .eq('id', dateId);
-
-    if (error) throw error;
+    const dates = await this.fetchDates();
+    const idx = dates.findIndex(d => d.id === dateId);
+    if (idx !== -1) {
+      Object.assign(dates[idx], changes);
+      await chrome.storage.local.set({ [STORAGE_KEY]: dates });
+    }
   }
 
   async deleteDate(dateId) {
-    const { error } = await this.supabase
-      .from('tracked_dates')
-      .delete()
-      .eq('id', dateId);
-
-    if (error) throw error;
+    const dates = await this.fetchDates();
+    const filtered = dates.filter(d => d.id !== dateId);
+    await chrome.storage.local.set({ [STORAGE_KEY]: filtered });
   }
 
   getAnniversaryDays(anniversaryDate) {
