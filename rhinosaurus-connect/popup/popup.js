@@ -1,6 +1,7 @@
 import { AuthUI } from './auth.js';
 import { RoomRenderer } from './room/room-renderer.js';
 import { RoomState } from './room/room-state.js';
+import { RoomSync } from './room/room-sync.js';
 import { DateService } from './calendar/date-service.js';
 import { CalendarOverlay } from './calendar/calendar-overlay.js';
 import { CalendarGlow } from './room/calendar-glow.js';
@@ -13,6 +14,8 @@ import { AvatarController } from './room/avatar-controller.js';
 import { TVDisplay } from './room/tv-display.js';
 import { TVOverlay } from './room/tv-overlay.js';
 import { AVATAR_SIZE, AVATAR_RENDER_SCALE } from '../shared/constants.js';
+import { createClient } from '@supabase/supabase-js';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../shared/supabase-helpers.js';
 
 const screens = {
   login: document.getElementById('login-screen'),
@@ -46,7 +49,7 @@ async function setupCalendar(supabase, pairId, userId, anniversaryDate) {
   calendarGlow.setMilestones(milestones);
 }
 
-async function init() {
+async function init(sessionData) {
   const canvas = document.getElementById('room-canvas');
   const roomState = new RoomState();
   const renderer = new RoomRenderer(canvas, roomState);
@@ -55,6 +58,15 @@ async function init() {
 
   let editMode = null;
   let customPanel = null;
+  let roomSync = null;
+
+  if (sessionData?.pair) {
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    roomSync = new RoomSync(supabase, sessionData.pair.id);
+    roomSync.init();
+  }
 
   renderer.addEffect({
     draw(ctx) {
@@ -74,6 +86,23 @@ async function init() {
       }
     },
   });
+
+  if (roomSync && sessionData?.session?.user?.id) {
+    const myUserId = sessionData.session.user.id;
+    roomSync.onActivityUpdate = (payload) => {
+      if (payload.user_id === myUserId) return;
+      const activity = payload.activity;
+      if (activity?.idle) {
+        tvDisplay.setPartnerState({ isOnline: true, idle: true });
+      } else if (activity?.trackingPaused) {
+        tvDisplay.setPartnerState({ isOnline: true, trackingPaused: true });
+      } else if (activity?.site) {
+        tvDisplay.setPartnerState({ isOnline: true, activity });
+      } else {
+        tvDisplay.setPartnerState({ isOnline: true });
+      }
+    };
+  }
 
   function canvasCoords(e) {
     const rect = canvas.getBoundingClientRect();
@@ -264,28 +293,6 @@ async function init() {
 
   renderer.startRenderLoop();
   setupCalendarMock();
-  setupActivityMock();
-}
-
-function setupActivityMock() {
-  if (!tvDisplay) return;
-
-  const mockActivities = [
-    { site: 'YouTube', title: 'Lo-fi hip hop beats to study to' },
-    { site: 'Reddit', title: 'r/cozyplaces - My reading nook' },
-    { site: 'Spotify', title: 'Chill Vibes Playlist' },
-    { site: 'Netflix', title: 'Watching: Our Planet' },
-    { site: 'Twitter', title: 'Home Timeline' },
-  ];
-
-  for (let i = mockActivities.length - 1; i >= 0; i--) {
-    tvDisplay.addToHistory({ ...mockActivities[i], timestamp: Date.now() - (i + 1) * 120000 });
-  }
-
-  tvDisplay.setPartnerState({
-    isOnline: true,
-    activity: mockActivities[0],
-  });
 }
 
 function setupCalendarMock() {
@@ -345,7 +352,7 @@ async function boot() {
   const authUI = new AuthUI((screen) => {
     showScreen(screen);
     if (screen === 'room') {
-      init();
+      bootRoom();
     }
   });
   authUI.init();
@@ -356,7 +363,7 @@ async function boot() {
       const { pair } = await chrome.runtime.sendMessage({ type: 'GET_PAIR' });
       if (pair) {
         showScreen('room');
-        init();
+        init({ session, pair });
       } else {
         showScreen('pairing');
       }
@@ -366,6 +373,17 @@ async function boot() {
   } catch (err) {
     console.error('Boot session check failed:', err);
     showScreen('login');
+  }
+}
+
+async function bootRoom() {
+  try {
+    const { session } = await chrome.runtime.sendMessage({ type: 'GET_SESSION' });
+    const { pair } = await chrome.runtime.sendMessage({ type: 'GET_PAIR' });
+    init({ session, pair });
+  } catch (err) {
+    console.error('Failed to load session for room:', err);
+    init();
   }
 }
 
