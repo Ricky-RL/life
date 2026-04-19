@@ -1,5 +1,6 @@
 import { ROOM_DIMENSIONS } from '../../shared/constants.js';
 import { SpeechBubbleQueue } from './speech-bubble.js';
+import { ColorTinter } from './color-tinter.js';
 
 export class RoomRenderer {
   constructor(canvas, roomState) {
@@ -13,6 +14,7 @@ export class RoomRenderer {
     this.effectLayers = [];
     this.editModeController = null;
     this.avatars = new Map();
+    this.colorTinter = new ColorTinter();
   }
 
   setSpriteLoader(loader) {
@@ -183,6 +185,9 @@ export class RoomRenderer {
         const dw = item.renderWidth || frame.sw;
         const dh = item.renderHeight || frame.sh;
         frame.draw(ctx, item.x, item.y, dw, dh);
+        if (item.color) {
+          this.colorTinter.applyTint(ctx, item.color, item.x, item.y, dw, dh);
+        }
         if (inEditMode) this.drawEditOutline(item, dw, dh);
         if (this.editModeController?.selectedId === item.id) this.drawSelectionHighlight(item, dw, dh);
         else if (this.hoveredItem === item) this.drawHoverGlow(item, dw, dh);
