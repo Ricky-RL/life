@@ -9,8 +9,13 @@ export class RoomRenderer {
     this.ctx.imageSmoothingEnabled = false;
     this.roomState = roomState;
     this.dirty = true;
-    this.spriteCache = {};
+    this.spriteLoader = null;
+    this.hoveredItem = null;
     this.effectLayers = [];
+  }
+
+  setSpriteLoader(loader) {
+    this.spriteLoader = loader;
   }
 
   markDirty() {
@@ -76,8 +81,60 @@ export class RoomRenderer {
   }
 
   drawFurnitureItem(item) {
+    if (item.type === 'window') {
+      this.drawWindow(item);
+    }
+
+    if (this.spriteLoader) {
+      const frame = this.spriteLoader.getFrame(item.type, item.variant || 'default');
+      if (frame) {
+        frame.draw(this.ctx, item.x, item.y);
+        if (this.hoveredItem === item && item.interactive) {
+          this.drawHoverGlow(item);
+        }
+        return;
+      }
+    }
+
     this.ctx.fillStyle = item.color || '#A0522D';
     this.ctx.fillRect(item.x, item.y, DEFAULT_HITBOX_SIZE.width, DEFAULT_HITBOX_SIZE.height);
+    if (this.hoveredItem === item && item.interactive) {
+      this.drawHoverGlow(item);
+    }
+  }
+
+  drawHoverGlow(item) {
+    this.ctx.save();
+    this.ctx.strokeStyle = 'rgba(255, 215, 0, 0.6)';
+    this.ctx.lineWidth = 2;
+    this.ctx.strokeRect(item.x - 1, item.y - 1, DEFAULT_HITBOX_SIZE.width + 2, DEFAULT_HITBOX_SIZE.height + 2);
+    this.ctx.restore();
+  }
+
+  drawWindow(windowItem) {
+    const hour = new Date().getHours();
+    const isNight = hour < 6 || hour >= 20;
+    const isDusk = (hour >= 18 && hour < 20) || (hour >= 6 && hour < 8);
+
+    this.ctx.fillStyle = isNight ? '#1a1a3e' : isDusk ? '#FF8C42' : '#87CEEB';
+    this.ctx.fillRect(windowItem.x + 4, windowItem.y + 4, 40, 30);
+
+    if (isNight) {
+      this.ctx.fillStyle = '#FFD700';
+      this.ctx.fillRect(windowItem.x + 12, windowItem.y + 10, 2, 2);
+      this.ctx.fillRect(windowItem.x + 28, windowItem.y + 16, 2, 2);
+      this.ctx.fillRect(windowItem.x + 20, windowItem.y + 8, 2, 2);
+    }
+  }
+
+  handleMouseMove(canvasX, canvasY) {
+    const hit = this.hitTest(canvasX, canvasY);
+    const newHovered = hit?.interactive ? hit : null;
+    if (newHovered !== this.hoveredItem) {
+      this.hoveredItem = newHovered;
+      this.canvas.style.cursor = newHovered ? 'pointer' : 'default';
+      this.markDirty();
+    }
   }
 
   addEffect(effect) {

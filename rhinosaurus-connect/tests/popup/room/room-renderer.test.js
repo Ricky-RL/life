@@ -10,7 +10,10 @@ function createMockCanvas() {
     drawImage: vi.fn(),
     save: vi.fn(),
     restore: vi.fn(),
+    strokeRect: vi.fn(),
     fillStyle: '',
+    strokeStyle: '',
+    lineWidth: 1,
     font: '',
     globalAlpha: 1,
     globalCompositeOperation: 'source-over',
@@ -111,5 +114,91 @@ describe('RoomRenderer', () => {
     renderer = new RoomRenderer(mockCanvas, roomState);
     const hit = renderer.hitTest(5, 5);
     expect(hit).toBeNull();
+  });
+
+  it('uses sprite loader to draw furniture when available', () => {
+    const mockFrame = { draw: vi.fn() };
+    const mockSpriteLoader = {
+      getFrame: vi.fn(() => mockFrame),
+    };
+    renderer.setSpriteLoader(mockSpriteLoader);
+    renderer.renderFrame();
+    expect(mockSpriteLoader.getFrame).toHaveBeenCalled();
+  });
+
+  it('falls back to colored rectangles without sprite loader', () => {
+    renderer.renderFrame();
+    expect(mockCtx.fillRect).toHaveBeenCalled();
+  });
+
+  it('draws hover glow on interactive hovered item', () => {
+    roomState.loadFromDb({
+      furniture: [
+        { id: 'tv-1', type: 'tv', x: 100, y: 100, interactive: true, interaction: 'activity' },
+      ],
+      avatar_positions: {},
+      theme: 'default',
+      version: 1,
+    });
+    renderer = new RoomRenderer(mockCanvas, roomState);
+    renderer.hoveredItem = roomState.furniture[0];
+    renderer.renderFrame();
+    expect(mockCtx.strokeRect).toHaveBeenCalled();
+    expect(mockCtx.save).toHaveBeenCalled();
+    expect(mockCtx.restore).toHaveBeenCalled();
+  });
+
+  it('handleMouseMove sets cursor to pointer on interactive item', () => {
+    roomState.loadFromDb({
+      furniture: [
+        { id: 'tv-1', type: 'tv', x: 100, y: 100, interactive: true, interaction: 'activity' },
+      ],
+      avatar_positions: {},
+      theme: 'default',
+      version: 1,
+    });
+    renderer = new RoomRenderer(mockCanvas, roomState);
+    renderer.handleMouseMove(110, 110);
+    expect(mockCanvas.style.cursor).toBe('pointer');
+    expect(renderer.hoveredItem).toBe(roomState.furniture[0]);
+  });
+
+  it('handleMouseMove resets cursor on empty area', () => {
+    roomState.loadFromDb({
+      furniture: [
+        { id: 'tv-1', type: 'tv', x: 100, y: 100, interactive: true, interaction: 'activity' },
+      ],
+      avatar_positions: {},
+      theme: 'default',
+      version: 1,
+    });
+    renderer = new RoomRenderer(mockCanvas, roomState);
+    renderer.hoveredItem = roomState.furniture[0];
+    renderer.handleMouseMove(5, 5);
+    expect(mockCanvas.style.cursor).toBe('default');
+    expect(renderer.hoveredItem).toBeNull();
+  });
+
+  it('draws day/night window based on time', () => {
+    roomState.loadFromDb({
+      furniture: [
+        { id: 'window-1', type: 'window', variant: 'default', x: 80, y: 20, interactive: false },
+      ],
+      avatar_positions: {},
+      theme: 'default',
+      version: 1,
+    });
+    renderer = new RoomRenderer(mockCanvas, roomState);
+    renderer.renderFrame();
+    // Window draws extra fillRects for the sky color
+    const fillRectCalls = mockCtx.fillRect.mock.calls;
+    // Should have floor + wall + window sky + the window furniture rect (fallback)
+    expect(fillRectCalls.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('setSpriteLoader stores the loader', () => {
+    const mockLoader = { getFrame: vi.fn() };
+    renderer.setSpriteLoader(mockLoader);
+    expect(renderer.spriteLoader).toBe(mockLoader);
   });
 });
