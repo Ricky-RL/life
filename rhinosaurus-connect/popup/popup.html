@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rhinosaurus Connect</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Login screen -->
+    <div id="login-screen" class="screen hidden">
+      <div class="logo-container">
+        <h1>Rhinosaurus Connect</h1>
+      </div>
+      <button id="login-btn" class="btn-primary">Sign in with Google</button>
+    </div>
+
+    <!-- Pairing screen -->
+    <div id="pairing-screen" class="screen hidden">
+      <h2>Connect with your partner</h2>
+      <button id="generate-code-btn" class="btn-primary">Generate Code</button>
+      <div id="code-display" class="hidden">
+        <span id="pair-code" class="pair-code"></span>
+        <button id="copy-code-btn" class="btn-small">Copy</button>
+        <p id="code-timer"></p>
+      </div>
+      <div class="divider">or</div>
+      <input id="code-input" type="text" maxlength="6" placeholder="Enter partner's code">
+      <button id="submit-code-btn" class="btn-primary">Connect</button>
+      <p id="pairing-error" class="error hidden"></p>
+    </div>
+
+    <!-- Main room -->
+    <div id="room-screen" class="screen hidden">
+      <canvas id="room-canvas" width="320" height="400"></canvas>
+      <div id="overlay-container" class="hidden"></div>
+      <div id="toolbar">
+        <button id="chat-btn" class="toolbar-btn" title="Chat">
+          <span class="toolbar-icon">💬</span>
+          <span id="unread-badge" class="badge hidden">0</span>
+        </button>
+        <button id="heart-btn" class="toolbar-btn" title="Send Heart">
+          <span class="toolbar-icon">❤️</span>
+        </button>
+        <button id="kiss-btn" class="toolbar-btn" title="Send Kiss">
+          <span class="toolbar-icon">💋</span>
+        </button>
+        <button id="mood-btn" class="toolbar-btn" title="Set Mood">
+          <span id="mood-icon" class="toolbar-icon">😶</span>
+        </button>
+        <button id="settings-btn" class="toolbar-btn" title="Settings">
+          <span class="toolbar-icon">⚙️</span>
+        </button>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Rhinosaurus Connect - Settings</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      padding: 24px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    h1 { color: #ff6b9d; margin-bottom: 24px; }
+    .section { margin-bottom: 24px; padding: 16px; background: #2a2a4a; border-radius: 8px; }
+    .section h2 { font-size: 16px; margin-bottom: 12px; }
+    .btn-danger {
+      padding: 8px 16px;
+      background: #ff4444;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn-danger:hover { background: #cc3333; }
+  </style>
+</head>
+<body>
+  <h1>Rhinosaurus Connect</h1>
+  <div class="section">
+    <h2>Tracking</h2>
+    <label>
+      <input type="checkbox" id="tracking-toggle" checked>
+      Share browsing activity with partner
+    </label>
+  </div>
+  <div class="section">
+    <h2>Account</h2>
+    <p id="user-email"></p>
+    <button id="unpair-btn" class="btn-danger">Unpair</button>
+  </div>
+  <script type="module" src="options.js"></script>
+</body>
+</html>
