@@ -11,6 +11,7 @@ export class RoomSync {
     this.saveTimer = null;
     this.pendingState = null;
     this.onRemoteUpdate = null;
+    this.onActivityUpdate = null;
   }
 
   init() {
@@ -21,6 +22,11 @@ export class RoomSync {
       .on('broadcast', { event: REALTIME_EVENTS.ROOM_UPDATE }, (payload) => {
         if (this.onRemoteUpdate) {
           this.onRemoteUpdate(payload.payload);
+        }
+      })
+      .on('broadcast', { event: REALTIME_EVENTS.ACTIVITY_UPDATE }, (payload) => {
+        if (this.onActivityUpdate) {
+          this.onActivityUpdate(payload.payload);
         }
       })
       .subscribe();
