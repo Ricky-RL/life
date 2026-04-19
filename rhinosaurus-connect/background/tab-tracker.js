@@ -108,6 +108,11 @@ export class TabTracker {
       timestamp: Date.now(),
     };
 
+    const isYT = this.isYouTubeVideo(tab.url);
+    if (isYT) {
+      activity.youtubeVideoId = this.getYouTubeVideoId(tab.url);
+    }
+
     this.localActivity = { ...activity, url: tab.url };
 
     if (
@@ -128,7 +133,6 @@ export class TabTracker {
       this.broadcast(activity);
     }, 500);
 
-    const isYT = this.isYouTubeVideo(tab.url);
     if (isYT && !this.wasOnYouTube) {
       this.wasOnYouTube = true;
       chrome.storage.local.set({ wasOnYouTube: true });

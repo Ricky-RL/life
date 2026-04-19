@@ -95,6 +95,9 @@ async function init(sessionData) {
     } else {
       tvDisplay.setPartnerState({ isOnline: true });
     }
+    if (tvOverlay?.element) {
+      tvOverlay.show();
+    }
   }
 
   chrome.runtime.sendMessage({ type: 'GET_PARTNER_ACTIVITY' }).then((res) => {
@@ -342,7 +345,10 @@ function handleInteraction(item) {
     const overlayContainer = document.getElementById('overlay-container');
     if (!tvOverlay) {
       tvOverlay = new TVOverlay(overlayContainer, tvDisplay, () => {
-        console.log('Join & Watch Together (not yet implemented)');
+        const activity = tvDisplay.partnerState.activity;
+        if (activity?.youtubeVideoId) {
+          window.open(`https://www.youtube.com/watch?v=${activity.youtubeVideoId}`, '_blank');
+        }
       });
     }
     tvOverlay.show();
