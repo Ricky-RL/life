@@ -1,5 +1,6 @@
 {
   "manifest_version": 3,
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwIlmTmJxII9lvK9U4ximpW/JTeCNuai29MZhoIWGQrmVM5G8d1z4kNw7sHswezM7oNBB0OdVknLQiJROy489R22QIoO3QKnxdg2RdbZ4t4cBR/1OVbqnPsj5PILTOoKTnp3gH+y066hvXJyl0tPXOV7ZAnuHpO0Ye14096h1S/Wc91NEcrCQkbKztR/t9y6S99FtT3z7ROXm0Bh5u6gK9QZIqRFTCiYXNUnPxmPrO05cYfygyN1g9WT4J8+Gp0w/k5cHPwlMcckp/kWf+mLJXN6XSOIKX6Gfocq0LCADT9INBR9pfJkVslIiVs85mXIKqPvuQ7jeUPeopivlCauYIQIDAQAB",
   "name": "Rhinosaurus Connect",
   "version": "0.1.0",
   "description": "A shared pixel art bedroom for long-distance couples",

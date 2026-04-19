@@ -4,12 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "node scripts/build.js",
+    "build:watch": "node scripts/build.js --watch",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "devDependencies": {
-    "vitest": "^3.1.0",
-    "jsdom": "^26.0.0"
+    "esbuild": "^0.28.0",
+    "jsdom": "^26.0.0",
+    "vitest": "^3.1.0"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.0"

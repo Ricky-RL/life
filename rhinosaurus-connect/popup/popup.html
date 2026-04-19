@@ -9,11 +9,12 @@
 <body>
   <div id="app">
     <!-- Login screen -->
-    <div id="login-screen" class="screen hidden">
+    <div id="login-screen" class="screen">
       <div class="logo-container">
         <h1>Rhinosaurus Connect</h1>
       </div>
       <button id="login-btn" class="btn-primary">Sign in with Google</button>
+      <p id="login-error" class="error hidden"></p>
     </div>
 
     <!-- Pairing screen -->
@@ -55,6 +56,6 @@
       </div>
     </div>
   </div>
-  <script type="module" src="popup.js"></script>
+  <script src="popup.js"></script>
 </body>
 </html>
