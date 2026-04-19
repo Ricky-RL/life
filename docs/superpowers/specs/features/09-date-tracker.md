@@ -90,13 +90,19 @@ When the current date matches a tracked date (anniversary, birthday, etc.):
 ## Technical Implementation
 
 ### Date Calculations
+All date math normalizes to UTC midnight to prevent off-by-one errors:
+
 ```js
+function normalizeToMidnightUTC(date) {
+  const d = new Date(date);
+  return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+}
+
 function getDaysDifference(targetDate) {
-  const now = new Date();
-  const target = new Date(targetDate);
+  const now = normalizeToMidnightUTC(new Date());
+  const target = normalizeToMidnightUTC(targetDate);
   const diffTime = target.getTime() - now.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  return diffDays; // positive = future, negative = past
+  return Math.round(diffTime / (1000 * 60 * 60 * 24)); // positive = future, negative = past
 }
 
 function formatDateDistance(days) {
@@ -110,21 +116,28 @@ function formatDateDistance(days) {
 ### Milestone Check (on popup open)
 ```js
 async function checkMilestones(pair, trackedDates) {
-  const today = new Date().toISOString().split('T')[0];
+  const today = normalizeToMidnightUTC(new Date()).toISOString().split('T')[0];
 
-  // Check tracked dates
+  // Check tracked dates (including recurring — compare month+day)
   for (const td of trackedDates) {
-    if (td.date === today) {
+    if (td.is_recurring) {
+      // Recurring: match month and day regardless of year (birthdays, yearly events)
+      const tdMonthDay = td.date.slice(5); // "MM-DD"
+      const todayMonthDay = today.slice(5);
+      if (tdMonthDay === todayMonthDay) {
+        showMilestoneNotification(td.label);
+      }
+    } else if (td.date === today) {
       showMilestoneNotification(td.label);
     }
   }
 
-  // Check anniversary milestones (100, 200, 365, 500, 730, 1000, etc.)
+  // Check anniversary milestones (generative rule: every 100 days, every 365 days)
   if (pair.anniversary_date) {
-    const days = getDaysDifference(pair.anniversary_date);
-    const milestones = [100, 200, 365, 500, 730, 1000, 1095, 1461, 1826];
-    if (milestones.includes(Math.abs(days))) {
-      showMilestoneNotification(`Day ${Math.abs(days)} together!`);
+    const days = Math.abs(getDaysDifference(pair.anniversary_date));
+    const isMilestone = (days % 100 === 0) || (days % 365 === 0);
+    if (isMilestone && days > 0) {
+      showMilestoneNotification(`Day ${days} together!`);
     }
   }
 }
@@ -133,8 +146,9 @@ async function checkMilestones(pair, trackedDates) {
 ---
 
 ## Database
-- `tracked_dates` table: `id, pair_id, label, date, is_countdown, created_by, created_at`
+- `tracked_dates` table: `id, pair_id, label, date, is_countdown, is_recurring, created_by, created_at`
 - `pairs.anniversary_date`: set during initial setup or via calendar
+- `is_recurring`: true for birthdays, yearly anniversaries — display shows "X days until [label]" using next occurrence of the month+day
 
 ## Realtime
 - Subscribe to changes on `tracked_dates` table filtered by `pair_id`

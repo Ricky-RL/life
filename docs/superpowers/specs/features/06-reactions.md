@@ -32,19 +32,22 @@ One-tap "Send Your Heart" and "Send a Kiss" buttons that trigger instant, expres
 ### Receiving — Offline
 1. Stored in `messages` table
 2. On next login, batched delivery:
-   - "She sent you 3 ❤️ and 2 💋 while you were away!"
+   - "She sent you 3 ❤️ and 2 💋 while you were away" with a burst animation
    - Partner's avatar plays a special burst animation: rapid heart_eyes → kiss_face → waving
    - Multiple hearts/kisses float up simultaneously
+   - **Cap**: max 10 particles regardless of count (50 reactions don't spawn 50 particles). Show the count in text instead.
 
 ---
 
 ## Animations & Effects
 
 ### Heart Animation Sequence
+**Target: 30fps (33ms per frame). Total duration: ~700ms.**
+
 ```
-Frame 0-5:   Avatar transitions from idle to heart_eyes
-Frame 6-15:  Heart_eyes loop (eyes are hearts, slight bouncing)
-Frame 16-20: Return to idle
+Frame 0-5 (0-166ms):    Avatar transitions from idle to heart_eyes
+Frame 6-15 (200-500ms): Heart_eyes loop (eyes are hearts, slight bouncing)
+Frame 16-20 (533-666ms): Return to idle
 
 Concurrent effects:
 - Speech bubble with ❤️ appears (fade in 200ms)
@@ -54,11 +57,13 @@ Concurrent effects:
 ```
 
 ### Kiss Animation Sequence
+**Target: 30fps (33ms per frame). Total duration: ~850ms.**
+
 ```
-Frame 0-5:   Avatar transitions from idle to kiss_face
-Frame 6-10:  Kiss face hold (puckered lips)
-Frame 11-20: A pixel kiss mark (💋) travels from sender avatar to receiver avatar in an arc
-Frame 21-25: Return to idle
+Frame 0-5 (0-166ms):    Avatar transitions from idle to kiss_face
+Frame 6-10 (200-333ms): Kiss face hold (puckered lips)
+Frame 11-20 (366-666ms): A pixel kiss mark (💋) travels from sender avatar to receiver avatar in an arc
+Frame 21-25 (700-833ms): Return to idle
 
 Concurrent effects:
 - Speech bubble with 💋 appears (fade in 200ms)

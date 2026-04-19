@@ -69,22 +69,22 @@ create table users (
   id uuid primary key references auth.users(id),
   display_name text not null,
   avatar_config jsonb not null default '{}',
-  mood text default null, -- 'happy', 'sad', 'missing_you', 'stressed', 'sleepy', 'excited', 'cozy'
+  mood text check (mood in ('happy', 'sad', 'missing_you', 'stressed', 'sleepy', 'excited', 'cozy')) default null,
   is_online boolean default false,
   last_seen_at timestamptz default now(),
-  current_activity jsonb default null, -- { site: string, title: string, url: string }
   tracking_enabled boolean default true,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
 
--- Pairs
+-- Pairs (LEAST/GREATEST ensures canonical ordering, prevents duplicate A/B vs B/A)
 create table pairs (
   id uuid primary key default gen_random_uuid(),
   user_a uuid not null references users(id),
   user_b uuid not null references users(id),
   anniversary_date date default null,
   created_at timestamptz default now(),
+  check (user_a < user_b),
   unique(user_a, user_b)
 );
 
@@ -101,7 +101,7 @@ create table messages (
   id uuid primary key default gen_random_uuid(),
   pair_id uuid not null references pairs(id) on delete cascade,
   sender_id uuid not null references users(id),
-  type text not null, -- 'text', 'image', 'heart', 'kiss'
+  type text not null check (type in ('text', 'image', 'heart', 'kiss')),
   content text default null, -- text content or storage path for images
   is_read boolean default false,
   created_at timestamptz default now()
@@ -114,6 +114,7 @@ create table room_state (
   furniture jsonb not null default '[]', -- array of { type, x, y, variant, color }
   avatar_positions jsonb not null default '{}', -- { user_id: { x, y } }
   theme text default 'default',
+  version integer not null default 0, -- incremented on every write, for conflict detection
   updated_at timestamptz default now()
 );
 
@@ -124,6 +125,7 @@ create table tracked_dates (
   label text not null, -- 'Anniversary', 'First Date', 'Next Visit', etc.
   date date not null,
   is_countdown boolean default false, -- true for future dates
+  is_recurring boolean default false, -- true for birthdays, yearly anniversaries
   created_by uuid not null references users(id),
   created_at timestamptz default now()
 );
@@ -133,9 +135,57 @@ create table tracked_dates (
 - `message-images`: image attachments in chat (public within pair, RLS enforced)
 
 ### Row Level Security
-- Users can only read/write their own user record
-- Pair members can only read/write records belonging to their pair
-- Pair codes are readable by anyone (for the pairing flow) but writable only by the creator
+
+```sql
+-- Enable RLS on all tables
+alter table users enable row level security;
+alter table pairs enable row level security;
+alter table pair_codes enable row level security;
+alter table messages enable row level security;
+alter table room_state enable row level security;
+alter table tracked_dates enable row level security;
+
+-- Users: can only read/write own record
+create policy "users_select_own" on users for select using (auth.uid() = id);
+create policy "users_update_own" on users for update using (auth.uid() = id);
+create policy "users_insert_own" on users for insert with check (auth.uid() = id);
+
+-- Pairs: members can read their own pair
+create policy "pairs_select_member" on pairs for select
+  using (auth.uid() = user_a or auth.uid() = user_b);
+
+-- Pair Codes: anyone can read (for pairing), only creator can write
+create policy "pair_codes_select_all" on pair_codes for select using (true);
+create policy "pair_codes_insert_own" on pair_codes for insert with check (auth.uid() = user_id);
+create policy "pair_codes_delete_own" on pair_codes for delete using (auth.uid() = user_id);
+
+-- Messages: pair members only
+create policy "messages_select_pair" on messages for select
+  using (pair_id in (select id from pairs where user_a = auth.uid() or user_b = auth.uid()));
+create policy "messages_insert_pair" on messages for insert
+  with check (pair_id in (select id from pairs where user_a = auth.uid() or user_b = auth.uid())
+              and sender_id = auth.uid());
+
+-- Room State: pair members only
+create policy "room_state_select_pair" on room_state for select
+  using (pair_id in (select id from pairs where user_a = auth.uid() or user_b = auth.uid()));
+create policy "room_state_update_pair" on room_state for update
+  using (pair_id in (select id from pairs where user_a = auth.uid() or user_b = auth.uid()));
+
+-- Tracked Dates: pair members only
+create policy "tracked_dates_all_pair" on tracked_dates for all
+  using (pair_id in (select id from pairs where user_a = auth.uid() or user_b = auth.uid()));
+```
+
+### Source of Truth: DB vs Realtime
+
+**Activity and presence data** flows in one direction: **Realtime is the live transport, DB is the fallback**.
+
+- `is_online` and `mood` are updated in the `users` table on state change and also broadcast via Realtime presence
+- **Realtime presence is canonical for "right now"** — if the presence channel says the user is online, they are online
+- **DB is canonical for "last known state"** — used when the popup first opens (before Realtime connects) and for offline partners
+- **On disconnect**: Supabase Realtime automatically removes the user from presence. The service worker's `onDisconnect` handler writes `is_online = false` and `last_seen_at = now()` to the DB
+- **Activity is ephemeral**: `current_activity` is NOT stored in the `users` table (removed to avoid privacy concerns with persisting full browsing data). It exists only in the Realtime presence payload and in-memory. When the popup opens, it reads from presence; when presence has no data, the TV shows "offline" or "idle"
 
 ---
 

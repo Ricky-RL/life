@@ -38,9 +38,13 @@ function handleTabChange(tab) {
   const activity = {
     site: siteName,
     title: tab.title,
-    url: tab.url,
     timestamp: Date.now()
   };
+
+  // NOTE: full URL is intentionally NOT included in the activity payload.
+  // Only site name and page title are shared to protect privacy.
+  // The URL is only used locally for YouTube detection (Watch Together).
+  const localActivity = { ...activity, url: tab.url }; // kept in-memory only
 
   // Broadcast via Realtime
   broadcastActivity(activity);
@@ -76,9 +80,9 @@ function extractSiteName(hostname) {
 ```
 
 ### Debouncing
-- Realtime broadcast: immediate (no debounce — partner should see changes fast)
-- Database write: debounced to every 5 seconds to avoid excessive writes
-- If tab changes rapidly (user switching between tabs), only broadcast the settled tab after 500ms
+- **Realtime broadcast**: debounced 500ms — waits for tab to "settle" before broadcasting (prevents noise from rapid tab switching)
+- **Database write**: NOT used — activity is ephemeral and only exists in Realtime presence, not persisted to DB (see main spec "Source of Truth" section)
+- If the same site+title is already broadcast, skip the duplicate
 
 ---
 
@@ -102,7 +106,23 @@ function extractSiteName(hostname) {
 | Offline | TV off (dark) |
 | Watching YouTube | Special YouTube icon + video title, "Join" button hint |
 
-**Idle detection**: the service worker tracks the timestamp of the last activity broadcast. Every 60 seconds, it checks if `Date.now() - lastActivityTimestamp > 5 * 60 * 1000`. If so, it broadcasts `{ type: 'activity_update', user_id, activity: null, idle: true }`. The partner's TV transitions to the screen saver state. When the user switches tabs again, a normal activity update resumes and clears the idle state.
+**Idle detection**: the service worker uses `chrome.alarms` API (not `setInterval`, which doesn't survive MV3 service worker suspension) to check idle state:
+
+```js
+// Create a repeating alarm every 1 minute
+chrome.alarms.create('idle-check', { periodInMinutes: 1 });
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === 'idle-check') {
+    const idleThreshold = 5 * 60 * 1000; // 5 minutes
+    if (Date.now() - lastActivityTimestamp > idleThreshold) {
+      broadcastIdleState();
+    }
+  }
+});
+```
+
+The partner's TV transitions to the screen saver state. When the user switches tabs again, a normal activity update resumes and clears the idle state.
 
 ### Interaction
 - Click on TV → opens an overlay panel showing:
@@ -166,9 +186,9 @@ function handleTabChange(tab) {
 ---
 
 ## Database
-- `users.current_activity`: `jsonb` — `{ site, title, url, timestamp }`
-- `users.tracking_enabled`: `boolean`
-- Updated via debounced writes from service worker
+- `users.tracking_enabled`: `boolean` — persisted preference
+- `current_activity` is NOT stored in the database — it exists only in Realtime presence (ephemeral)
+- `wasOnYouTube` state: stored in `chrome.storage.local` to survive service worker restarts
 
 ## Realtime
 - Broadcast on `pair:{pair_id}:events`:

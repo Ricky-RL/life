@@ -49,13 +49,29 @@ Redirect URL: https://<extension-id>.chromiumapp.org/
 ```
 
 ### Chrome Identity Integration
+**Important**: `chrome.identity.getAuthToken` returns a Google *access* token, not an ID token. Use `launchWebAuthFlow` with Supabase's OAuth URL instead.
+
 ```js
-// In service worker or popup
-const token = await chrome.identity.getAuthToken({ interactive: true });
-// Exchange token with Supabase
-const { data, error } = await supabase.auth.signInWithIdToken({
-  provider: 'google',
-  token: token
+// In popup
+const SUPABASE_URL = 'https://<project>.supabase.co';
+const redirectUrl = chrome.identity.getRedirectURL();
+
+const authUrl = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectUrl)}`;
+
+const responseUrl = await chrome.identity.launchWebAuthFlow({
+  url: authUrl,
+  interactive: true
+});
+
+// Extract tokens from the redirect URL hash
+const hashParams = new URLSearchParams(new URL(responseUrl).hash.substring(1));
+const accessToken = hashParams.get('access_token');
+const refreshToken = hashParams.get('refresh_token');
+
+// Set the session in Supabase client
+const { data, error } = await supabase.auth.setSession({
+  access_token: accessToken,
+  refresh_token: refreshToken
 });
 ```
 
@@ -63,7 +79,9 @@ const { data, error } = await supabase.auth.signInWithIdToken({
 - 6 characters, alphanumeric, uppercase (e.g., "A3X9K2")
 - Avoid ambiguous characters: 0/O, 1/I/L
 - Stored in `pair_codes` table with 10-minute expiry
-- Expired codes cleaned up via Supabase scheduled cron job (pg_cron) running every 10 minutes: `DELETE FROM pair_codes WHERE expires_at < now()`
+- Expired codes cleaned up via Supabase scheduled cron job (pg_cron) running every 5 minutes: `DELETE FROM pair_codes WHERE expires_at < now()`
+- **Rate limiting**: max 5 code entry attempts per user per 10 minutes, enforced via a Supabase Edge Function that tracks attempts. After 5 failures, return "Too many attempts, try again later."
+- **One active code per user**: generating a new code invalidates any existing code for that user (`DELETE FROM pair_codes WHERE user_id = ?` before insert)
 
 ### Pair Code Validation
 ```js
@@ -80,30 +98,26 @@ if (codeRecord.user_id === currentUser.id) {
   throw new Error("You can't pair with yourself");
 }
 
-// 3. Create pair
-const { data: pair } = await supabase
-  .from('pairs')
-  .insert({
-    user_a: codeRecord.user_id,
-    user_b: currentUser.id
-  });
+// 3. Atomic pairing via Postgres function (prevents race conditions)
+// This runs as a single transaction: claims code, creates pair, creates room
+const { data: pair, error } = await supabase.rpc('claim_pair_code', {
+  p_code: inputCode,
+  p_user_id: currentUser.id
+});
 
-// 3. Create default room
-await supabase
-  .from('room_state')
-  .insert({
-    pair_id: pair.id,
-    furniture: DEFAULT_FURNITURE,
-    avatar_positions: DEFAULT_POSITIONS
-  });
-
-// 4. Delete used code
-await supabase.from('pair_codes').delete().eq('code', inputCode);
+// The Postgres function does:
+// - SELECT ... FROM pair_codes WHERE code = p_code FOR UPDATE (locks the row)
+// - Validates code not expired and user_id != p_user_id
+// - INSERT into pairs (with LEAST/GREATEST ordering)
+// - INSERT into room_state with defaults
+// - DELETE the pair code
+// - All in one transaction — if any step fails, everything rolls back
 ```
 
 ### Session Persistence
-- Store Supabase session in `chrome.storage.local`
-- Service worker restores session on startup
+- Store Supabase access token in `chrome.storage.session` (encrypted, per-session — not accessible by other extensions)
+- Store refresh token in `chrome.storage.local` for cross-session persistence
+- Service worker restores session on startup by calling `supabase.auth.getSession()`
 - Refresh token automatically via Supabase client
 
 ---

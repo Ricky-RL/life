@@ -40,9 +40,18 @@ When both partners are watching the same YouTube video, a "Watching Together" ba
 function isYouTubeVideo(url) {
   try {
     const parsed = new URL(url);
-    return (parsed.hostname === 'www.youtube.com' || parsed.hostname === 'youtube.com')
-      && parsed.pathname === '/watch'
-      && parsed.searchParams.has('v');
+    const ytHosts = ['www.youtube.com', 'youtube.com', 'm.youtube.com'];
+
+    if (!ytHosts.includes(parsed.hostname)) {
+      // Handle youtu.be short links
+      if (parsed.hostname === 'youtu.be') return true;
+      return false;
+    }
+
+    // Match /watch?v=, /shorts/, /live/ — but NOT homepage, search, channel pages
+    return (parsed.pathname === '/watch' && parsed.searchParams.has('v'))
+      || parsed.pathname.startsWith('/shorts/')
+      || parsed.pathname.startsWith('/live/');
   } catch {
     return false;
   }
@@ -50,6 +59,9 @@ function isYouTubeVideo(url) {
 
 function getYouTubeVideoId(url) {
   const parsed = new URL(url);
+  if (parsed.hostname === 'youtu.be') return parsed.pathname.slice(1);
+  if (parsed.pathname.startsWith('/shorts/')) return parsed.pathname.split('/')[2];
+  if (parsed.pathname.startsWith('/live/')) return parsed.pathname.split('/')[2];
   return parsed.searchParams.get('v');
 }
 ```

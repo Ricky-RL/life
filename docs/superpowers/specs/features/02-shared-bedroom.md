@@ -52,11 +52,23 @@ The core UI of Rhinosaurus Connect is a shared pixel art bedroom rendered on HTM
 ## Canvas Rendering
 
 ### Render Loop
+Uses a dirty-flag approach to avoid wasting CPU on static frames:
+
 ```js
 class RoomRenderer {
-  constructor(canvas, roomState, avatarStates) { ... }
+  constructor(canvas, roomState, avatarStates) {
+    this.dirty = true; // re-render needed
+  }
+
+  markDirty() { this.dirty = true; }
 
   render() {
+    if (!this.dirty) {
+      requestAnimationFrame(() => this.render());
+      return;
+    }
+    this.dirty = false;
+
     this.clear();
     this.drawFloor();
     this.drawWalls();
@@ -64,10 +76,14 @@ class RoomRenderer {
     this.drawAvatars();         // sorted by y-position for depth
     this.drawEffects();         // hearts, sparkles, speech bubbles
     this.drawInteractionHints(); // subtle glow on hoverable objects
+
+    // Animations (idle blink, effects) call markDirty() when they tick
     requestAnimationFrame(() => this.render());
   }
 }
 ```
+
+Animations (avatar idle, floating effects, phone glow) call `markDirty()` on their frame tick timers. Static room frames cost zero CPU. Target 30fps cap via frame timing when actively animating.
 
 ### Sprite System
 - Sprite sheets loaded as Image objects

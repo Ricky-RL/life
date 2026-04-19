@@ -109,23 +109,37 @@ When the user is browsing other tabs (popup is closed):
 - Click popup → opens the extension popup (chat overlay)
 
 ### Corner Popup Implementation
+**Security: NEVER use innerHTML for user content. Use DOM API to prevent XSS.**
+
 ```js
 // content/corner-popup.js
 function showCornerPopup(avatarData, message) {
   const container = document.createElement('div');
   container.id = 'rhinosaurus-notification';
-  container.innerHTML = `
-    <div class="rhino-notif-container">
-      <canvas class="rhino-avatar" width="64" height="96"></canvas>
-      <div class="rhino-speech-bubble">
-        <span class="rhino-message">${escapeHtml(message.preview)}</span>
-      </div>
-    </div>
-  `;
+
+  const inner = document.createElement('div');
+  inner.className = 'rhino-notif-container';
+
+  const canvas = document.createElement('canvas');
+  canvas.className = 'rhino-avatar';
+  canvas.width = 64;
+  canvas.height = 96;
+
+  const bubble = document.createElement('div');
+  bubble.className = 'rhino-speech-bubble';
+
+  const msgSpan = document.createElement('span');
+  msgSpan.className = 'rhino-message';
+  msgSpan.textContent = message.preview; // textContent auto-escapes
+
+  bubble.appendChild(msgSpan);
+  inner.appendChild(canvas);
+  inner.appendChild(bubble);
+  container.appendChild(inner);
   document.body.appendChild(container);
 
   // Render avatar on the mini canvas
-  renderAvatarOnCanvas(container.querySelector('.rhino-avatar'), avatarData, message.animation);
+  renderAvatarOnCanvas(canvas, avatarData, message.animation);
 
   // Animate in
   requestAnimationFrame(() => container.classList.add('rhino-visible'));

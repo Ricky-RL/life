@@ -83,7 +83,13 @@ function drawMoodBubble(ctx, avatarX, avatarY, mood) {
 }
 ```
 
-Note: emoji rendering on canvas can be inconsistent across platforms. Consider using pre-rendered pixel art versions of each mood emoji for consistency with the Stardew Valley style.
+Note: emoji rendering on canvas is inconsistent across platforms. **Use pre-rendered pixel art sprites for each mood emoji** to maintain Stardew Valley visual consistency. Each mood gets a small 16x16 pixel art icon rendered from a sprite sheet, not a system emoji.
+
+### Dropdown Dismiss Behavior
+- Click outside the dropdown → closes without changing mood
+- Press Escape → closes without changing mood
+- Click a mood option → sets mood and closes
+- Click the mood button again → toggles dropdown closed
 
 ---
 

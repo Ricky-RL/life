@@ -86,11 +86,11 @@ Layer 1: Bottom (pants, skirt, etc.)
 Layer 2: Shoes
 Layer 3: Top (shirt, hoodie, etc.)
 Layer 4: Outerwear (cardigan, scarf — optional)
-Layer 5: Jewelry (necklace, earrings, bracelet, ring)
-Layer 6: Head accessory (hat, headphones, hair clip)
-Layer 7: Face accessory (glasses)
-Layer 8: Held item (bag, coffee — positioned at hand)
-Layer 9: Makeup (lipstick, blush, eyeshadow — female avatar only)
+Layer 5: Makeup (lipstick, blush, eyeshadow — female avatar only, applied before face accessories)
+Layer 6: Jewelry (necklace, earrings, bracelet, ring)
+Layer 7: Head accessory (hat, headphones, hair clip)
+Layer 8: Face accessory (glasses)
+Layer 9: Held item (bag, coffee — positioned at hand)
 Layer 10: Pet (positioned relative to avatar, independent animation)
 ```
 
@@ -112,6 +112,8 @@ class AvatarRenderer {
     if (avatarConfig.outerwear) this.layers.push(getSprite('outerwear', avatarConfig.outerwear));
     if (avatarConfig.necklace) this.layers.push(getSprite('necklace', avatarConfig.necklace));
     if (avatarConfig.earrings) this.layers.push(getSprite('earrings', avatarConfig.earrings));
+    if (avatarConfig.ring) this.layers.push(getSprite('ring', avatarConfig.ring));
+    if (avatarConfig.bracelet) this.layers.push(getSprite('bracelet', avatarConfig.bracelet));
     if (avatarConfig.head) this.layers.push(getSprite('head', avatarConfig.head));
     if (avatarConfig.face) this.layers.push(getSprite('face', avatarConfig.face));
     if (avatarConfig.held) this.layers.push(getSprite('held', avatarConfig.held));
@@ -139,8 +141,15 @@ class AvatarRenderer {
 ### Sprite Sheet Organization
 Each customization item needs frames matching the avatar's animation states:
 - Clothes/accessories must be drawn for: idle (4f), speaking (4f), heart_eyes (6f), kiss_face (6f), sleeping (4f), waving (6f), walking (8f), sitting (2f)
-- This is a significant art investment — start with a small set of items and expand over time
 - Items are drawn to align perfectly with the base avatar's body positions in each frame
+
+**Art Production Strategy — Palette Swaps:**
+Creating unique sprites for every item × every color × every animation frame is infeasible. Instead:
+- Each clothing/accessory item is drawn ONCE in grayscale (or a base color)
+- Color variants are generated programmatically via **palette swap**: replace a known set of base colors with the target palette at load time
+- This reduces art production by ~10x (1 sprite per item instead of 1 per item × 16 colors)
+- Implementation: at sprite load time, iterate pixels on an offscreen canvas, map base palette → target palette, cache the result
+- Jewelry and small items with metallic/textured colors may need hand-drawn variants (gold, silver, rose gold) — max 3 per item
 
 ---
 
