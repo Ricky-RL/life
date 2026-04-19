@@ -19,6 +19,7 @@ function initTabTracker() {
   eventsChannel
     .on('broadcast', { event: REALTIME_EVENTS.ACTIVITY_UPDATE }, (msg) => {
       const payload = msg.payload;
+      console.log('[TabTracker] Received activity broadcast:', payload.user_id, payload.activity?.site);
       if (payload.user_id === currentSession?.user?.id) return;
       partnerActivity = payload.activity;
       chrome.runtime.sendMessage({
@@ -26,10 +27,13 @@ function initTabTracker() {
         activity: partnerActivity,
       }).catch(() => {});
     })
-    .subscribe();
+    .subscribe((status) => {
+      console.log('[TabTracker] Channel subscribe status:', status);
+    });
 
   tabTracker = new TabTracker((activity) => {
     if (eventsChannel) {
+      console.log('[TabTracker] Broadcasting activity:', activity.site, activity.title);
       eventsChannel.send({
         type: 'broadcast',
         event: REALTIME_EVENTS.ACTIVITY_UPDATE,
@@ -57,18 +61,26 @@ function initTabTracker() {
   tabTracker.init();
 }
 
-chrome.runtime.onInstalled.addListener(() => {
-  console.log('Rhinosaurus Connect installed');
-});
-
-chrome.runtime.onStartup.addListener(async () => {
+async function startup() {
+  console.log('[Startup] Restoring session...');
   currentSession = await restoreSession();
+  console.log('[Startup] Session:', currentSession ? 'found' : 'none');
   if (currentSession) {
     await loadPairData();
+    console.log('[Startup] Pair:', currentPair ? currentPair.id : 'none');
     if (currentPair) {
       initTabTracker();
     }
   }
+}
+
+chrome.runtime.onInstalled.addListener(() => {
+  console.log('Rhinosaurus Connect installed');
+  startup();
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  startup();
 });
 
 async function loadPairData() {
@@ -117,10 +129,16 @@ async function handleMessage(message) {
     case 'GET_PAIR': {
       if (!currentSession) return { pair: null };
       await loadPairData();
+      if (currentPair && !tabTracker) {
+        initTabTracker();
+      }
       return { pair: currentPair };
     }
 
     case 'GET_SESSION': {
+      if (!currentSession) {
+        currentSession = await restoreSession();
+      }
       return { session: currentSession };
     }
 
