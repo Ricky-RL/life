@@ -2,6 +2,7 @@ export class AuthUI {
   constructor(onScreenChange) {
     this.onScreenChange = onScreenChange;
     this.codeExpiryTimer = null;
+    this.pairPollTimer = null;
   }
 
   init() {
@@ -16,6 +17,7 @@ export class AuthUI {
     document.getElementById('generate-code-btn')?.addEventListener('click', () => this.handleGenerateCode());
     document.getElementById('submit-code-btn')?.addEventListener('click', () => this.handleSubmitCode());
     document.getElementById('copy-code-btn')?.addEventListener('click', () => this.handleCopyCode());
+    document.getElementById('signout-btn')?.addEventListener('click', () => this.handleSignOut());
   }
 
   async handleLogin() {
@@ -52,9 +54,30 @@ export class AuthUI {
       const response = await chrome.runtime.sendMessage({ type: 'GENERATE_CODE' });
       if (response?.code) {
         this.showCode(response.code);
+        this.startPairPolling();
       }
     } catch (err) {
       this.showError('Failed to generate code');
+    }
+  }
+
+  startPairPolling() {
+    this.stopPairPolling();
+    this.pairPollTimer = setInterval(async () => {
+      try {
+        const pair = await chrome.runtime.sendMessage({ type: 'GET_PAIR' });
+        if (pair?.pair) {
+          this.stopPairPolling();
+          this.onScreenChange('room');
+        }
+      } catch {}
+    }, 3000);
+  }
+
+  stopPairPolling() {
+    if (this.pairPollTimer) {
+      clearInterval(this.pairPollTimer);
+      this.pairPollTimer = null;
     }
   }
 
@@ -75,6 +98,16 @@ export class AuthUI {
       }
     } catch (err) {
       this.showError('Failed to connect. Try again.');
+    }
+  }
+
+  async handleSignOut() {
+    try {
+      this.stopPairPolling();
+      await chrome.runtime.sendMessage({ type: 'SIGN_OUT' });
+      this.onScreenChange('login');
+    } catch (err) {
+      console.error('Sign out failed:', err);
     }
   }
 
@@ -129,5 +162,6 @@ export class AuthUI {
 
   destroy() {
     if (this.codeExpiryTimer) clearInterval(this.codeExpiryTimer);
+    this.stopPairPolling();
   }
 }

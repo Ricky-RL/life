@@ -109,6 +109,19 @@ body {
   font-size: 12px;
 }
 
+.btn-link {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 12px;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+.btn-link:hover {
+  color: #ff6b9d;
+}
+
 /* Room screen */
 #room-screen {
   padding: 0;
