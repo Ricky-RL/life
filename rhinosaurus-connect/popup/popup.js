@@ -10,6 +10,8 @@ import { FurnitureCatalog } from './room/furniture-catalog.js';
 import { ColorTinter } from './room/color-tinter.js';
 import { AvatarAnimator } from './room/avatar-animator.js';
 import { AvatarController } from './room/avatar-controller.js';
+import { TVDisplay } from './room/tv-display.js';
+import { TVOverlay } from './room/tv-overlay.js';
 import { AVATAR_SIZE, AVATAR_RENDER_SCALE } from '../shared/constants.js';
 
 const screens = {
@@ -28,6 +30,8 @@ function showScreen(name) {
 let calendarOverlay = null;
 let dateService = null;
 const calendarGlow = new CalendarGlow();
+let tvDisplay = null;
+let tvOverlay = null;
 
 async function setupCalendar(supabase, pairId, userId, anniversaryDate) {
   dateService = new DateService(supabase, pairId, userId);
@@ -57,6 +61,17 @@ async function init() {
       const cal = roomState.furniture.find(f => f.type === 'calendar');
       if (cal) calendarGlow.draw(ctx, cal.x, cal.y, performance.now());
       if (calendarGlow.isActive) renderer.markDirty();
+    },
+  });
+
+  tvDisplay = new TVDisplay();
+  renderer.addEffect({
+    draw(ctx) {
+      const tvItem = roomState.furniture.find(f => f.type === 'tv');
+      if (tvItem && tvDisplay) {
+        tvDisplay.draw(ctx, tvItem.x + 4, tvItem.y + 4, 40, 28);
+        renderer.markDirty();
+      }
     },
   });
 
@@ -249,6 +264,28 @@ async function init() {
 
   renderer.startRenderLoop();
   setupCalendarMock();
+  setupActivityMock();
+}
+
+function setupActivityMock() {
+  if (!tvDisplay) return;
+
+  const mockActivities = [
+    { site: 'YouTube', title: 'Lo-fi hip hop beats to study to' },
+    { site: 'Reddit', title: 'r/cozyplaces - My reading nook' },
+    { site: 'Spotify', title: 'Chill Vibes Playlist' },
+    { site: 'Netflix', title: 'Watching: Our Planet' },
+    { site: 'Twitter', title: 'Home Timeline' },
+  ];
+
+  for (let i = mockActivities.length - 1; i >= 0; i--) {
+    tvDisplay.addToHistory({ ...mockActivities[i], timestamp: Date.now() - (i + 1) * 120000 });
+  }
+
+  tvDisplay.setPartnerState({
+    isOnline: true,
+    activity: mockActivities[0],
+  });
 }
 
 function setupCalendarMock() {
@@ -289,6 +326,16 @@ function setupCalendarMock() {
 function handleInteraction(item) {
   if (item.interaction === 'dates' && calendarOverlay) {
     calendarOverlay.open();
+    return;
+  }
+  if (item.interaction === 'activity' && tvDisplay) {
+    const overlayContainer = document.getElementById('overlay-container');
+    if (!tvOverlay) {
+      tvOverlay = new TVOverlay(overlayContainer, tvDisplay, () => {
+        console.log('Join & Watch Together (not yet implemented)');
+      });
+    }
+    tvOverlay.show();
     return;
   }
   console.log('Interaction:', item.interaction, item.id);
