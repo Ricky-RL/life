@@ -179,3 +179,195 @@ body {
   justify-content: center;
   padding: 0 4px;
 }
+
+/* Edit mode */
+.toolbar-btn.edit-active {
+  background: #ff6b9d;
+  border-radius: 8px;
+}
+
+#edit-mode-banner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  background: rgba(255, 107, 157, 0.85);
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  padding: 4px 0;
+  z-index: 20;
+  letter-spacing: 0.5px;
+}
+
+/* Customization panel */
+#customization-panel {
+  position: absolute;
+  bottom: 50px;
+  left: 0;
+  width: 100%;
+  z-index: 15;
+}
+
+.custom-panel {
+  background: #1a1a2e;
+  border-top: 1px solid #3a3a5a;
+  padding: 10px 12px;
+}
+
+.custom-panel-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ff6b9d;
+  margin-bottom: 8px;
+  text-transform: capitalize;
+}
+
+.custom-color-section {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.custom-color-swatch {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #3a3a5a;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0;
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.custom-color-swatch:hover {
+  border-color: #fff;
+  transform: scale(1.15);
+}
+
+.custom-color-swatch.custom-color-active {
+  border-color: #ff6b9d;
+  box-shadow: 0 0 6px rgba(255, 107, 157, 0.5);
+}
+
+.custom-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.custom-remove-btn,
+.custom-done-btn,
+.custom-add-btn {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.custom-remove-btn {
+  background: #4a2a2a;
+  color: #ff6666;
+}
+
+.custom-remove-btn:hover:not(:disabled) {
+  background: #6a3a3a;
+}
+
+.custom-remove-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.custom-done-btn {
+  background: #2a4a2a;
+  color: #88ff88;
+}
+
+.custom-done-btn:hover {
+  background: #3a5a3a;
+}
+
+.custom-add-btn {
+  background: #2a2a5a;
+  color: #88aaff;
+}
+
+.custom-add-btn:hover {
+  background: #3a3a6a;
+}
+
+/* Catalog browser */
+.catalog-panel {
+  background: #1a1a2e;
+  border-top: 1px solid #3a3a5a;
+  padding: 10px 12px;
+}
+
+.catalog-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.catalog-tab {
+  padding: 4px 10px;
+  background: #2a2a4a;
+  border: none;
+  border-radius: 4px;
+  color: #aaa;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.catalog-tab:hover {
+  background: #3a3a5a;
+}
+
+.catalog-tab.catalog-tab-active {
+  background: #ff6b9d;
+  color: white;
+}
+
+.catalog-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 80px;
+  overflow-y: auto;
+}
+
+.catalog-item {
+  padding: 4px 10px;
+  background: #2a2a4a;
+  border: 1px solid #3a3a5a;
+  border-radius: 4px;
+  color: #ddd;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.catalog-item:hover {
+  background: #3a3a6a;
+  border-color: #ff6b9d;
+}
+
+.catalog-back-btn {
+  margin-top: 8px;
+  padding: 4px 10px;
+  background: #2a2a4a;
+  border: none;
+  border-radius: 4px;
+  color: #aaa;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.catalog-back-btn:hover {
+  background: #3a3a5a;
+}

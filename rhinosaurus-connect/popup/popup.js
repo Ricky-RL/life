@@ -49,6 +49,7 @@ async function init() {
     panelContainer.id = 'customization-panel';
     document.getElementById('room-screen').appendChild(panelContainer);
     customPanel = new CustomizationPanel(panelContainer);
+    customPanel.setCatalog(catalog);
 
     editMode.onSelectionChange = (selectedId) => {
       if (!selectedId) {
@@ -75,6 +76,11 @@ async function init() {
     customPanel.onRemove = (id) => {
       editMode.removeItem(id);
       customPanel.hide();
+      renderer.markDirty();
+    };
+
+    customPanel.onAddItem = (item) => {
+      editMode.addItem(item);
       renderer.markDirty();
     };
   }
@@ -126,6 +132,26 @@ async function init() {
     }
   });
 
+  const settingsBtn = document.getElementById('settings-btn');
+  const roomScreen = document.getElementById('room-screen');
+  let editBanner = null;
+
+  function updateEditModeUI(active) {
+    settingsBtn.classList.toggle('edit-active', active);
+    settingsBtn.title = active ? 'Exit Edit Mode' : 'Customize Room';
+    if (active) {
+      if (!editBanner) {
+        editBanner = document.createElement('div');
+        editBanner.id = 'edit-mode-banner';
+        editBanner.textContent = 'EDIT MODE — tap items to customize';
+        roomScreen.appendChild(editBanner);
+      }
+    } else if (editBanner) {
+      editBanner.remove();
+      editBanner = null;
+    }
+  }
+
   document.getElementById('settings-btn').addEventListener('click', () => {
     if (editMode) {
       if (editMode.isEditMode) {
@@ -134,6 +160,7 @@ async function init() {
       } else {
         editMode.enter();
       }
+      updateEditModeUI(editMode.isEditMode);
       renderer.markDirty();
     }
   });
