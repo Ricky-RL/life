@@ -9,12 +9,24 @@ let currentSession = null;
 let currentPair = null;
 let tabTracker = null;
 let eventsChannel = null;
+let partnerActivity = null;
 
 function initTabTracker() {
   if (!supabase || !currentPair) return;
 
   eventsChannel = supabase.channel(getEventsChannelName(currentPair.id));
-  eventsChannel.subscribe();
+
+  eventsChannel
+    .on('broadcast', { event: REALTIME_EVENTS.ACTIVITY_UPDATE }, (msg) => {
+      const payload = msg.payload;
+      if (payload.user_id === currentSession?.user?.id) return;
+      partnerActivity = payload.activity;
+      chrome.runtime.sendMessage({
+        type: 'PARTNER_ACTIVITY_UPDATE',
+        activity: partnerActivity,
+      }).catch(() => {});
+    })
+    .subscribe();
 
   tabTracker = new TabTracker((activity) => {
     if (eventsChannel) {
@@ -137,6 +149,10 @@ async function handleMessage(message) {
         tabTracker.setTrackingEnabled(message.enabled);
       }
       return { ok: true };
+    }
+
+    case 'GET_PARTNER_ACTIVITY': {
+      return { activity: partnerActivity };
     }
 
     default:

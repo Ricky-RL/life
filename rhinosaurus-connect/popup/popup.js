@@ -1,7 +1,6 @@
 import { AuthUI } from './auth.js';
 import { RoomRenderer } from './room/room-renderer.js';
 import { RoomState } from './room/room-state.js';
-import { RoomSync } from './room/room-sync.js';
 import { DateService } from './calendar/date-service.js';
 import { CalendarOverlay } from './calendar/calendar-overlay.js';
 import { CalendarGlow } from './room/calendar-glow.js';
@@ -14,8 +13,6 @@ import { AvatarController } from './room/avatar-controller.js';
 import { TVDisplay } from './room/tv-display.js';
 import { TVOverlay } from './room/tv-overlay.js';
 import { AVATAR_SIZE, AVATAR_RENDER_SCALE } from '../shared/constants.js';
-import { createClient } from '@supabase/supabase-js';
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../shared/supabase-helpers.js';
 
 const screens = {
   login: document.getElementById('login-screen'),
@@ -58,15 +55,6 @@ async function init(sessionData) {
 
   let editMode = null;
   let customPanel = null;
-  let roomSync = null;
-
-  if (sessionData?.pair) {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
-    roomSync = new RoomSync(supabase, sessionData.pair.id);
-    roomSync.init();
-  }
 
   renderer.addEffect({
     draw(ctx) {
@@ -87,22 +75,29 @@ async function init(sessionData) {
     },
   });
 
-  if (roomSync && sessionData?.session?.user?.id) {
-    const myUserId = sessionData.session.user.id;
-    roomSync.onActivityUpdate = (payload) => {
-      if (payload.user_id === myUserId) return;
-      const activity = payload.activity;
-      if (activity?.idle) {
-        tvDisplay.setPartnerState({ isOnline: true, idle: true });
-      } else if (activity?.trackingPaused) {
-        tvDisplay.setPartnerState({ isOnline: true, trackingPaused: true });
-      } else if (activity?.site) {
-        tvDisplay.setPartnerState({ isOnline: true, activity });
-      } else {
-        tvDisplay.setPartnerState({ isOnline: true });
-      }
-    };
+  function applyActivity(activity) {
+    if (!activity) {
+      tvDisplay.setPartnerState({ isOnline: false });
+    } else if (activity.idle) {
+      tvDisplay.setPartnerState({ isOnline: true, idle: true });
+    } else if (activity.trackingPaused) {
+      tvDisplay.setPartnerState({ isOnline: true, trackingPaused: true });
+    } else if (activity.site) {
+      tvDisplay.setPartnerState({ isOnline: true, activity });
+    } else {
+      tvDisplay.setPartnerState({ isOnline: true });
+    }
   }
+
+  chrome.runtime.sendMessage({ type: 'GET_PARTNER_ACTIVITY' }).then((res) => {
+    if (res?.activity) applyActivity(res.activity);
+  }).catch(() => {});
+
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message.type === 'PARTNER_ACTIVITY_UPDATE') {
+      applyActivity(message.activity);
+    }
+  });
 
   function canvasCoords(e) {
     const rect = canvas.getBoundingClientRect();
