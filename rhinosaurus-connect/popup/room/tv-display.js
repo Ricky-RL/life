@@ -14,8 +14,30 @@ export class TVDisplay {
     }
   }
 
-  setWatchTogether(active) {
+  /**
+   * Activates or deactivates Watch Together mode.
+   * @param {boolean} active
+   * @param {string|null} [title]
+   * @param {string|null} [videoId]
+   */
+  setWatchTogether(active, title = null, videoId = null) {
     this.watchTogether = active;
+    this.watchTogetherTitle = active ? title : null;
+    this.watchTogetherVideoId = active ? videoId : null;
+  }
+
+  /**
+   * Returns avatar seat positions relative to the TV centre.
+   * @param {number} tvX - Centre X of the TV on the canvas.
+   * @param {number} tvY - Centre Y of the TV on the canvas.
+   * @returns {{ left: {x:number,y:number}, right: {x:number,y:number}, solo: {x:number,y:number} }}
+   */
+  getWatchTogetherSeats(tvX, tvY) {
+    return {
+      left: { x: tvX - 20, y: tvY + 60 },
+      right: { x: tvX + 20, y: tvY + 60 },
+      solo: { x: tvX, y: tvY + 60 },
+    };
   }
 
   addToHistory(activity) {
@@ -31,6 +53,7 @@ export class TVDisplay {
 
   getDisplayState() {
     if (this.watchTogether) return 'watch_together';
+    if (this.partnerState.isYouTube) return 'youtube';
     if (!this.partnerState.isOnline) return 'offline';
     if (this.partnerState.trackingPaused) return 'tracking_paused';
     if (this.partnerState.idle) return 'idle';
@@ -48,7 +71,7 @@ export class TVDisplay {
     ctx.fillRect(x, y, width, height);
 
     ctx.strokeStyle = '#4a4a6a';
-    ctx.strokeRect(x, y, width, height);
+    if (ctx.strokeRect) ctx.strokeRect(x, y, width, height);
 
     const centerX = x + width / 2;
     const centerY = y + height / 2;
