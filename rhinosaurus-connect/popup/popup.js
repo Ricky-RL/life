@@ -12,7 +12,17 @@ import { AvatarAnimator } from './room/avatar-animator.js';
 import { AvatarController } from './room/avatar-controller.js';
 import { TVDisplay } from './room/tv-display.js';
 import { TVOverlay } from './room/tv-overlay.js';
-import { AVATAR_SIZE, AVATAR_RENDER_SCALE } from '../shared/constants.js';
+import { ChatOverlay } from './chat/chat-overlay.js';
+import { MessageService } from './chat/message-service.js';
+import { TypingIndicator } from './chat/typing-indicator.js';
+import { PhoneGlow } from './room/phone-glow.js';
+import { ReactionHandler } from './room/reaction-handler.js';
+import { ReactionParticleSystem } from './room/reaction-particles.js';
+import { MoodDropdown } from './mood/mood-dropdown.js';
+import { MoodBubble } from './mood/mood-bubble.js';
+import { MoodHandler } from './mood/mood-handler.js';
+import { SoundManager } from '../shared/sound-manager.js';
+import { AVATAR_SIZE, AVATAR_RENDER_SCALE, MOOD_OPTIONS } from '../shared/constants.js';
 
 const screens = {
   login: document.getElementById('login-screen'),
@@ -32,6 +42,16 @@ let dateService = null;
 const calendarGlow = new CalendarGlow();
 let tvDisplay = null;
 let tvOverlay = null;
+const soundManager = new SoundManager();
+const phoneGlow = new PhoneGlow();
+const particleSystem = new ReactionParticleSystem();
+let chatOverlay = null;
+let messageService = null;
+let typingIndicator = null;
+let reactionHandler = null;
+let moodDropdown = null;
+let moodHandler = null;
+const moodBubbles = new Map();
 
 async function setupCalendar(anniversaryDate) {
   dateService = new DateService();
@@ -373,29 +393,176 @@ async function init(sessionData) {
     }
   });
 
-  document.getElementById('heart-btn').addEventListener('click', () => {
-    console.log('Heart sent (not yet implemented)');
+  document.getElementById('heart-btn').addEventListener('click', async () => {
+    if (reactionHandler) {
+      await reactionHandler.sendHeart();
+      particleSystem.spawnHearts(myAvatar.x + 40, myAvatar.y);
+      renderer.markDirty();
+      soundManager.play('heart');
+    }
   });
 
-  document.getElementById('kiss-btn').addEventListener('click', () => {
-    console.log('Kiss sent (not yet implemented)');
+  document.getElementById('kiss-btn').addEventListener('click', async () => {
+    if (reactionHandler) {
+      await reactionHandler.sendKiss();
+      particleSystem.spawnKiss(myAvatar.x + 40, myAvatar.y, partnerAvatar.x + 40, partnerAvatar.y);
+      renderer.markDirty();
+      soundManager.play('kiss');
+    }
   });
 
   document.getElementById('mood-btn').addEventListener('click', () => {
-    console.log('Mood picker (not yet implemented)');
+    if (moodDropdown) moodDropdown.toggle();
   });
 
   document.getElementById('chat-btn').addEventListener('click', () => {
-    console.log('Chat (not yet implemented)');
+    if (chatOverlay) {
+      chatOverlay.open();
+      phoneGlow.dismiss();
+      renderer.markDirty();
+    }
   });
 
   renderer.startRenderLoop();
 
+  renderer.addEffect({
+    draw(ctx) {
+      particleSystem.update();
+      particleSystem.draw(ctx);
+      if (particleSystem.isActive()) renderer.markDirty();
+    },
+  });
+
+  renderer.addEffect({
+    draw(ctx) {
+      const desk = roomState.furniture.find(f => f.type === 'desk');
+      if (desk) phoneGlow.draw(ctx, desk.x, desk.y, performance.now());
+      if (phoneGlow.isActive) renderer.markDirty();
+    },
+  });
+
+  renderer.addEffect({
+    draw(ctx) {
+      for (const [userId, bubble] of moodBubbles) {
+        const avatar = renderer.avatars.get(userId);
+        if (avatar) {
+          bubble.update(16);
+          bubble.draw(ctx, avatar.controller.x, avatar.controller.y, bubble.currentMood);
+          if (bubble.transitioning) renderer.markDirty();
+        }
+      }
+    },
+  });
+
+  await soundManager.init();
+  setupChat(renderer);
+  setupMood(renderer);
+  setupReactions(renderer);
+
   const anniversaryDate = sessionData?.pair?.anniversary_date || null;
   await setupCalendar(anniversaryDate);
+
+  setupCalendarMock();
+}
+
+function setupChat(renderer) {
+  const overlayContainer = document.getElementById('overlay-container');
+  const mockChannel = { send: () => {} };
+  const mockSupabase = {
+    from: () => ({
+      insert: () => ({ select: () => ({ single: () => Promise.resolve({ data: { id: Date.now(), type: 'text', content: '' }, error: null }) }) }),
+      select: () => ({ eq: () => ({ order: () => ({ range: () => Promise.resolve({ data: [], error: null }) }) }) }),
+      update: () => ({ eq: () => ({ eq: () => ({ neq: () => Promise.resolve({ error: null }) }) }) }),
+    }),
+    storage: { from: () => ({ upload: () => Promise.resolve({ data: { path: '' }, error: null }) }) },
+  };
+  messageService = new MessageService(mockSupabase, 'mock-pair', 'me', mockChannel);
+  typingIndicator = new TypingIndicator(mockChannel, 'me');
+  chatOverlay = new ChatOverlay(overlayContainer, messageService, 'me');
+  chatOverlay.onClose = () => {
+    phoneGlow.dismiss();
+    renderer.markDirty();
+  };
+}
+
+function setupMood(renderer) {
+  const toolbar = document.getElementById('toolbar');
+  moodDropdown = new MoodDropdown(toolbar);
+  moodDropdown.render();
+  moodDropdown.onSelect = (mood) => {
+    const moodIcon = document.getElementById('mood-icon');
+    const option = MOOD_OPTIONS.find(m => m.key === mood);
+    moodIcon.textContent = option ? option.emoji : '😶';
+    let bubble = moodBubbles.get('me');
+    if (!bubble) {
+      bubble = new MoodBubble();
+      moodBubbles.set('me', bubble);
+    }
+    bubble.setMood(mood);
+    renderer.markDirty();
+  };
+}
+
+function setupReactions(renderer) {
+  if (messageService) {
+    reactionHandler = new ReactionHandler(messageService, particleSystem);
+  }
+}
+
+function setupCalendarMock() {
+  const dates = [
+    { id: '1', label: 'Next Visit', date: '2026-05-10', is_countdown: true, is_recurring: false },
+    { id: '2', label: 'Her Birthday', date: '2025-08-22', is_countdown: true, is_recurring: true },
+    { id: '3', label: 'First Date', date: '2024-06-15', is_countdown: false, is_recurring: false },
+  ];
+
+  const mockService = {
+    fetchDates: () => Promise.resolve([...dates]),
+    addDate: (label, date, isCountdown, isRecurring) => {
+      const newDate = { id: String(Date.now()), label, date, is_countdown: isCountdown, is_recurring: isRecurring };
+      dates.push(newDate);
+      return Promise.resolve(newDate);
+    },
+    deleteDate: (id) => {
+      const idx = dates.findIndex(d => d.id === id);
+      if (idx !== -1) dates.splice(idx, 1);
+      return Promise.resolve();
+    },
+    updateDate: (id, changes) => {
+      const idx = dates.findIndex(d => d.id === id);
+      if (idx !== -1) Object.assign(dates[idx], changes);
+      return Promise.resolve();
+    },
+    getAnniversaryDays: (d) => d ? Math.floor((Date.now() - new Date(d).getTime()) / 86400000) : null,
+    sortDates: (list) => {
+      const now = new Date();
+      const upcoming = [];
+      const past = [];
+      for (const d of list) {
+        const diff = Math.round((new Date(d.date) - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
+        const entry = { ...d, effectiveDate: d.date, days: diff };
+        if (diff >= 0) upcoming.push(entry);
+        else past.push(entry);
+      }
+      upcoming.sort((a, b) => a.days - b.days);
+      past.sort((a, b) => b.days - a.days);
+      return { upcoming, past };
+    },
+    checkAnniversaryMilestones: () => [],
+    checkDateMilestones: () => [],
+  };
+
+  const overlayContainer = document.getElementById('overlay-container');
+  calendarOverlay = new CalendarOverlay(overlayContainer, mockService, '2024-06-15');
+  calendarOverlay.onClose = () => {};
 }
 
 function handleInteraction(item) {
+  if (item.interaction === 'chat' && chatOverlay) {
+    chatOverlay.open();
+    phoneGlow.dismiss();
+    return;
+  }
   if (item.interaction === 'dates' && calendarOverlay) {
     calendarOverlay.open();
     return;
