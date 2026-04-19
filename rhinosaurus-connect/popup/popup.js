@@ -13,7 +13,17 @@ import { AvatarAnimator } from './room/avatar-animator.js';
 import { AvatarController } from './room/avatar-controller.js';
 import { TVDisplay } from './room/tv-display.js';
 import { TVOverlay } from './room/tv-overlay.js';
-import { AVATAR_SIZE, AVATAR_RENDER_SCALE } from '../shared/constants.js';
+import { ChatOverlay } from './chat/chat-overlay.js';
+import { MessageService } from './chat/message-service.js';
+import { TypingIndicator } from './chat/typing-indicator.js';
+import { PhoneGlow } from './room/phone-glow.js';
+import { ReactionHandler } from './room/reaction-handler.js';
+import { ReactionParticleSystem } from './room/reaction-particles.js';
+import { MoodDropdown } from './mood/mood-dropdown.js';
+import { MoodBubble } from './mood/mood-bubble.js';
+import { MoodHandler } from './mood/mood-handler.js';
+import { SoundManager } from '../shared/sound-manager.js';
+import { AVATAR_SIZE, AVATAR_RENDER_SCALE, MOOD_OPTIONS } from '../shared/constants.js';
 
 const screens = {
   login: document.getElementById('login-screen'),
@@ -33,6 +43,16 @@ let dateService = null;
 const calendarGlow = new CalendarGlow();
 let tvDisplay = null;
 let tvOverlay = null;
+const soundManager = new SoundManager();
+const phoneGlow = new PhoneGlow();
+const particleSystem = new ReactionParticleSystem();
+let chatOverlay = null;
+let messageService = null;
+let typingIndicator = null;
+let reactionHandler = null;
+let moodDropdown = null;
+let moodHandler = null;
+const moodBubbles = new Map();
 
 async function setupCalendar(supabase, pairId, userId, anniversaryDate) {
   dateService = new DateService(supabase, pairId, userId);
@@ -375,24 +395,117 @@ async function init(sessionData) {
     }
   });
 
-  document.getElementById('heart-btn').addEventListener('click', () => {
-    console.log('Heart sent (not yet implemented)');
+  document.getElementById('heart-btn').addEventListener('click', async () => {
+    if (reactionHandler) {
+      await reactionHandler.sendHeart();
+      particleSystem.spawnHearts(myAvatar.x + 40, myAvatar.y);
+      renderer.markDirty();
+      soundManager.play('heart');
+    }
   });
 
-  document.getElementById('kiss-btn').addEventListener('click', () => {
-    console.log('Kiss sent (not yet implemented)');
+  document.getElementById('kiss-btn').addEventListener('click', async () => {
+    if (reactionHandler) {
+      await reactionHandler.sendKiss();
+      particleSystem.spawnKiss(myAvatar.x + 40, myAvatar.y, partnerAvatar.x + 40, partnerAvatar.y);
+      renderer.markDirty();
+      soundManager.play('kiss');
+    }
   });
 
   document.getElementById('mood-btn').addEventListener('click', () => {
-    console.log('Mood picker (not yet implemented)');
+    if (moodDropdown) moodDropdown.toggle();
   });
 
   document.getElementById('chat-btn').addEventListener('click', () => {
-    console.log('Chat (not yet implemented)');
+    if (chatOverlay) {
+      chatOverlay.open();
+      phoneGlow.dismiss();
+      renderer.markDirty();
+    }
   });
 
   renderer.startRenderLoop();
+
+  renderer.addEffect({
+    draw(ctx) {
+      particleSystem.update();
+      particleSystem.draw(ctx);
+      if (particleSystem.isActive()) renderer.markDirty();
+    },
+  });
+
+  renderer.addEffect({
+    draw(ctx) {
+      const desk = roomState.furniture.find(f => f.type === 'desk');
+      if (desk) phoneGlow.draw(ctx, desk.x, desk.y, performance.now());
+      if (phoneGlow.isActive) renderer.markDirty();
+    },
+  });
+
+  renderer.addEffect({
+    draw(ctx) {
+      for (const [userId, bubble] of moodBubbles) {
+        const avatar = renderer.avatars.get(userId);
+        if (avatar) {
+          bubble.update(16);
+          bubble.draw(ctx, avatar.controller.x, avatar.controller.y, bubble.currentMood);
+          if (bubble.transitioning) renderer.markDirty();
+        }
+      }
+    },
+  });
+
+  await soundManager.init();
+  setupChat(renderer);
+  setupMood(renderer);
+  setupReactions(renderer);
+
   setupCalendarMock();
+}
+
+function setupChat(renderer) {
+  const overlayContainer = document.getElementById('overlay-container');
+  const mockChannel = { send: () => {} };
+  const mockSupabase = {
+    from: () => ({
+      insert: () => ({ select: () => ({ single: () => Promise.resolve({ data: { id: Date.now(), type: 'text', content: '' }, error: null }) }) }),
+      select: () => ({ eq: () => ({ order: () => ({ range: () => Promise.resolve({ data: [], error: null }) }) }) }),
+      update: () => ({ eq: () => ({ eq: () => ({ neq: () => Promise.resolve({ error: null }) }) }) }),
+    }),
+    storage: { from: () => ({ upload: () => Promise.resolve({ data: { path: '' }, error: null }) }) },
+  };
+  messageService = new MessageService(mockSupabase, 'mock-pair', 'me', mockChannel);
+  typingIndicator = new TypingIndicator(mockChannel, 'me');
+  chatOverlay = new ChatOverlay(overlayContainer, messageService, 'me');
+  chatOverlay.onClose = () => {
+    phoneGlow.dismiss();
+    renderer.markDirty();
+  };
+}
+
+function setupMood(renderer) {
+  const toolbar = document.getElementById('toolbar');
+  moodDropdown = new MoodDropdown(toolbar);
+  moodDropdown.render();
+  moodDropdown.onSelect = (mood) => {
+    const moodIcon = document.getElementById('mood-icon');
+    const option = MOOD_OPTIONS.find(m => m.key === mood);
+    moodIcon.textContent = option ? option.emoji : '😶';
+    let bubble = moodBubbles.get('me');
+    if (!bubble) {
+      bubble = new MoodBubble();
+      moodBubbles.set('me', bubble);
+    }
+    bubble.setMood(mood);
+    renderer.markDirty();
+  };
+}
+
+function setupReactions(renderer) {
+  if (messageService) {
+    reactionHandler = new ReactionHandler(messageService, particleSystem);
+  }
 }
 
 function setupCalendarMock() {
@@ -444,6 +557,11 @@ function setupCalendarMock() {
 }
 
 function handleInteraction(item) {
+  if (item.interaction === 'chat' && chatOverlay) {
+    chatOverlay.open();
+    phoneGlow.dismiss();
+    return;
+  }
   if (item.interaction === 'dates' && calendarOverlay) {
     calendarOverlay.open();
     return;

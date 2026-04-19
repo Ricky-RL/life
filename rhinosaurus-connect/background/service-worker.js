@@ -1,10 +1,14 @@
 import { restoreSession, supabase } from './supabase-client.js';
 import { AuthManager } from './auth-manager.js';
 import { TabTracker } from './tab-tracker.js';
+import { NotificationManager } from './notification-manager.js';
+import { MessageQueue } from './message-queue.js';
 import { REALTIME_EVENTS } from '../shared/constants.js';
 import { getEventsChannelName } from '../shared/supabase-helpers.js';
 
 const authManager = new AuthManager();
+const notificationManager = new NotificationManager();
+const messageQueue = new MessageQueue(supabase);
 let currentSession = null;
 let currentPair = null;
 let tabTracker = null;
@@ -184,6 +188,32 @@ async function handleMessage(message) {
 
     case 'GET_PARTNER_ACTIVITY': {
       return { activity: partnerActivity };
+    }
+
+    case 'PROCESS_QUEUE': {
+      if (!currentPair || !currentSession) return null;
+      return messageQueue.processQueue(currentPair.id, currentSession.user.id);
+    }
+
+    case 'SEND_REACTION': {
+      if (!currentPair || !currentSession) return { error: 'Not paired' };
+      const { error } = await supabase.from('messages').insert({
+        pair_id: currentPair.id,
+        sender_id: currentSession.user.id,
+        type: message.reaction,
+        content: null,
+      });
+      return { error: error?.message || null };
+    }
+
+    case 'POPUP_CLOSED': {
+      if (currentSession) {
+        await supabase
+          .from('users')
+          .update({ is_online: false, last_seen_at: new Date().toISOString() })
+          .eq('id', currentSession.user.id);
+      }
+      return { ok: true };
     }
 
     default:
