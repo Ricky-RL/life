@@ -455,8 +455,9 @@ async function init(sessionData) {
   });
 
   await soundManager.init();
-  setupChat(renderer);
-  setupMood(renderer);
+  const userId = sessionData?.session?.user?.id || 'me';
+  setupChat(renderer, userId);
+  setupMood(renderer, userId);
   setupReactions(renderer);
 
   const anniversaryDate = sessionData?.pair?.anniversary_date || null;
@@ -465,31 +466,92 @@ async function init(sessionData) {
   setupCalendarMock();
 }
 
-function setupChat(renderer) {
+function setupChat(renderer, userId) {
   const overlayContainer = document.getElementById('overlay-container');
-  const mockChannel = { send: () => {} };
-  const mockSupabase = {
-    from: () => ({
-      insert: () => ({ select: () => ({ single: () => Promise.resolve({ data: { id: Date.now(), type: 'text', content: '' }, error: null }) }) }),
-      select: () => ({ eq: () => ({ order: () => ({ range: () => Promise.resolve({ data: [], error: null }) }) }) }),
-      update: () => ({ eq: () => ({ eq: () => ({ neq: () => Promise.resolve({ error: null }) }) }) }),
-    }),
-    storage: { from: () => ({ upload: () => Promise.resolve({ data: { path: '' }, error: null }) }) },
+
+  const swMessageService = {
+    async sendText(content) {
+      const res = await chrome.runtime.sendMessage({ type: 'SEND_TEXT', content });
+      if (res?.error) throw new Error(res.error);
+      return res.message || { id: Date.now(), type: 'text', content, sender_id: userId, created_at: new Date().toISOString() };
+    },
+    async sendReaction(reactionType) {
+      await chrome.runtime.sendMessage({ type: 'SEND_REACTION', reaction: reactionType });
+    },
+    async fetchMessages(offset, limit) {
+      const res = await chrome.runtime.sendMessage({ type: 'FETCH_MESSAGES', offset, limit });
+      return res?.messages || [];
+    },
+    async markAsRead() {
+      await chrome.runtime.sendMessage({ type: 'MARK_READ' });
+    },
+    formatPreview(content, type = 'text') {
+      if (type === 'heart') return '❤️';
+      if (type === 'kiss') return '💋';
+      if (type === 'image') return 'Sent you a photo 📷';
+      if (!content) return '';
+      return content.length > 80 ? content.substring(0, 80) + '...' : content;
+    },
   };
-  messageService = new MessageService(mockSupabase, 'mock-pair', 'me', mockChannel);
-  typingIndicator = new TypingIndicator(mockChannel, 'me');
-  chatOverlay = new ChatOverlay(overlayContainer, messageService, 'me');
+
+  messageService = swMessageService;
+  chatOverlay = new ChatOverlay(overlayContainer, swMessageService, userId);
   chatOverlay.onClose = () => {
     phoneGlow.dismiss();
     renderer.markDirty();
   };
+
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message.type === 'NEW_MESSAGE') {
+      const msg = message.data;
+      if (msg.sender_id === userId) return;
+      if (chatOverlay && chatOverlay.isOpen) {
+        chatOverlay.onIncomingMessage(msg);
+      } else {
+        phoneGlow.onNewMessage();
+        renderer.markDirty();
+        soundManager.play('message');
+      }
+    }
+    if (message.type === 'PARTNER_REACTION') {
+      const { reaction, sender_id } = message.data;
+      if (sender_id === userId) return;
+      const partnerAvatarData = renderer.avatars.get('partner');
+      if (partnerAvatarData && reactionHandler) {
+        reactionHandler.onReceiveReaction(
+          reaction,
+          partnerAvatarData.animator,
+          partnerAvatarData.bubbleQueue,
+          partnerAvatarData.controller.x,
+          partnerAvatarData.controller.y,
+          renderer.avatars.get('me')?.controller.x,
+          renderer.avatars.get('me')?.controller.y
+        );
+        renderer.markDirty();
+        soundManager.play(reaction);
+      }
+    }
+    if (message.type === 'PARTNER_MOOD_UPDATE') {
+      const { mood } = message.data;
+      let bubble = moodBubbles.get('partner');
+      if (!bubble) {
+        bubble = new MoodBubble();
+        moodBubbles.set('partner', bubble);
+      }
+      bubble.setMood(mood);
+      renderer.markDirty();
+    }
+    if (message.type === 'PARTNER_TYPING') {
+      if (typingIndicator) typingIndicator.onPartnerTyping();
+    }
+  });
 }
 
-function setupMood(renderer) {
+function setupMood(renderer, userId) {
   const toolbar = document.getElementById('toolbar');
   moodDropdown = new MoodDropdown(toolbar);
   moodDropdown.render();
-  moodDropdown.onSelect = (mood) => {
+  moodDropdown.onSelect = async (mood) => {
     const moodIcon = document.getElementById('mood-icon');
     const option = MOOD_OPTIONS.find(m => m.key === mood);
     moodIcon.textContent = option ? option.emoji : '😶';
@@ -500,13 +562,17 @@ function setupMood(renderer) {
     }
     bubble.setMood(mood);
     renderer.markDirty();
+    await chrome.runtime.sendMessage({ type: 'SET_MOOD', mood });
   };
 }
 
 function setupReactions(renderer) {
-  if (messageService) {
-    reactionHandler = new ReactionHandler(messageService, particleSystem);
-  }
+  const swReactionService = {
+    async sendReaction(type) {
+      await chrome.runtime.sendMessage({ type: 'SEND_REACTION', reaction: type });
+    },
+  };
+  reactionHandler = new ReactionHandler(swReactionService, particleSystem);
 }
 
 function setupCalendarMock() {

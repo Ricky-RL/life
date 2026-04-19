@@ -36,6 +36,43 @@ function initTabTracker() {
         activity: partnerActivity,
       }).catch(() => {});
     })
+    .on('broadcast', { event: 'new_message' }, (msg) => {
+      const payload = msg.payload;
+      if (payload.sender_id === currentSession?.user?.id) return;
+      if (payload.type === 'heart' || payload.type === 'kiss') {
+        chrome.runtime.sendMessage({
+          type: 'PARTNER_REACTION',
+          data: { reaction: payload.type, sender_id: payload.sender_id },
+        }).catch(() => {
+          notificationManager.notify({ type: payload.type, senderName: 'Partner' });
+        });
+      } else {
+        chrome.runtime.sendMessage({
+          type: 'NEW_MESSAGE',
+          data: payload,
+        }).catch(() => {
+          notificationManager.notify({
+            type: payload.type,
+            content: payload.content,
+            senderName: 'Partner',
+            animation: 'speaking',
+          });
+        });
+      }
+    })
+    .on('broadcast', { event: REALTIME_EVENTS.MOOD_UPDATE }, (msg) => {
+      const payload = msg.payload;
+      if (payload.user_id === currentSession?.user?.id) return;
+      chrome.runtime.sendMessage({
+        type: 'PARTNER_MOOD_UPDATE',
+        data: { mood: payload.mood },
+      }).catch(() => {});
+    })
+    .on('broadcast', { event: 'typing' }, (msg) => {
+      const payload = msg.payload;
+      if (payload.user_id === currentSession?.user?.id) return;
+      chrome.runtime.sendMessage({ type: 'PARTNER_TYPING' }).catch(() => {});
+    })
     .subscribe((status) => {
       console.log('[SW] Channel status:', status);
     });
@@ -197,13 +234,70 @@ async function handleMessage(message) {
 
     case 'SEND_REACTION': {
       if (!currentPair || !currentSession) return { error: 'Not paired' };
-      const { error } = await supabase.from('messages').insert({
+      const { data: reactionMsg, error: rErr } = await supabase.from('messages').insert({
         pair_id: currentPair.id,
         sender_id: currentSession.user.id,
         type: message.reaction,
         content: null,
-      });
-      return { error: error?.message || null };
+      }).select().single();
+      if (!rErr && eventsChannel) {
+        eventsChannel.send({ type: 'broadcast', event: 'new_message', payload: reactionMsg });
+      }
+      return { error: rErr?.message || null };
+    }
+
+    case 'SEND_TEXT': {
+      if (!currentPair || !currentSession) return { error: 'Not paired' };
+      const { data: textMsg, error: tErr } = await supabase.from('messages').insert({
+        pair_id: currentPair.id,
+        sender_id: currentSession.user.id,
+        type: 'text',
+        content: message.content,
+      }).select().single();
+      if (!tErr && eventsChannel) {
+        eventsChannel.send({ type: 'broadcast', event: 'new_message', payload: textMsg });
+      }
+      return { error: tErr?.message || null, message: textMsg };
+    }
+
+    case 'FETCH_MESSAGES': {
+      if (!currentPair) return { messages: [] };
+      const offset = message.offset || 0;
+      const limit = message.limit || 50;
+      const { data, error: fErr } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('pair_id', currentPair.id)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+      return { messages: data || [], error: fErr?.message || null };
+    }
+
+    case 'MARK_READ': {
+      if (!currentPair || !currentSession) return { ok: true };
+      await supabase
+        .from('messages')
+        .update({ is_read: true })
+        .eq('pair_id', currentPair.id)
+        .eq('is_read', false)
+        .neq('sender_id', currentSession.user.id);
+      return { ok: true };
+    }
+
+    case 'SET_MOOD': {
+      if (!currentSession) return { error: 'Not logged in' };
+      await supabase
+        .from('users')
+        .update({ mood: message.mood })
+        .eq('id', currentSession.user.id);
+      if (eventsChannel) {
+        eventsChannel.send({
+          type: 'broadcast',
+          event: REALTIME_EVENTS.MOOD_UPDATE,
+          payload: { user_id: currentSession.user.id, mood: message.mood },
+        });
+      }
+      return { ok: true };
     }
 
     case 'POPUP_CLOSED': {
