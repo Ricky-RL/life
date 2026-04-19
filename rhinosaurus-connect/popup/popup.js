@@ -56,6 +56,14 @@ async function init(sessionData) {
   let editMode = null;
   let customPanel = null;
 
+  const userBar = document.getElementById('user-bar');
+  if (sessionData?.session?.user) {
+    const user = sessionData.session.user;
+    const name = user.user_metadata?.full_name || user.email || 'signed in';
+    userBar.textContent = name;
+    userBar.classList.remove('hidden');
+  }
+
   renderer.addEffect({
     draw(ctx) {
       const cal = roomState.furniture.find(f => f.type === 'calendar');
