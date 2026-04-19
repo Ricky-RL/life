@@ -1,6 +1,7 @@
 import { AuthUI } from './auth.js';
 import { RoomRenderer } from './room/room-renderer.js';
 import { RoomState } from './room/room-state.js';
+import { SpriteLoader } from './room/sprite-loader.js';
 import { DateService } from './calendar/date-service.js';
 import { CalendarOverlay } from './calendar/calendar-overlay.js';
 import { CalendarGlow } from './room/calendar-glow.js';
@@ -48,6 +49,52 @@ async function init() {
   const renderer = new RoomRenderer(canvas, roomState);
   const catalog = new FurnitureCatalog();
   const tinter = new ColorTinter();
+
+  const spriteLoader = new SpriteLoader();
+
+  function spriteUrl(filename) {
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL) {
+      return chrome.runtime.getURL(`assets/sprites/${filename}`);
+    }
+    return `../assets/sprites/${filename}`;
+  }
+
+  const spriteManifest = [
+    ['bed', 'double-wood', 'bed-double-wood.png'],
+    ['tv', 'crt', 'tv-crt.png'],
+    ['desk', 'wooden', 'desk-wooden.png'],
+    ['calendar', 'default', 'calendar-default.png'],
+    ['makeup_stand', 'default', 'makeup-stand-default.png'],
+    ['window', 'default', 'window-default.png'],
+    ['nightstand', 'wooden', 'nightstand-wooden.png'],
+    ['nightstand', 'wooden-2', 'nightstand-wooden-2.png'],
+    ['rug', 'round', 'rug-round.png'],
+    ['bookshelf', 'default', 'bookshelf.png'],
+    ['plant', 'potted', 'plant-potted.png'],
+    ['plant', 'hanging', 'plant-hanging.png'],
+    ['plant', 'succulent', 'plant-succulent.png'],
+    ['photo_frame', 'default', 'photo-frame.png'],
+    ['misc', 'plushie', 'plushie.png'],
+    ['misc', 'candles', 'candles.png'],
+    ['misc', 'pet_bed', 'pet-bed.png'],
+    ['flowers', 'vase', 'flowers-vase.png'],
+    ['poster', 'default', 'poster.png'],
+    ['rug', 'rectangular', 'rug-rectangular.png'],
+    ['curtains', 'solid', 'curtains-solid.png'],
+    ['wall_shelf', 'default', 'wall-shelf.png'],
+    ['misc', 'books', 'book-stack.png'],
+    ['lamp', 'floor', 'floor-lamp.png'],
+  ];
+
+  await Promise.all(
+    spriteManifest.map(([type, variant, file]) =>
+      spriteLoader.loadSprite(type, variant, spriteUrl(file)).catch(() => {
+        console.warn(`Failed to load sprite: ${file}`);
+      })
+    )
+  );
+
+  renderer.setSpriteLoader(spriteLoader);
 
   let editMode = null;
   let customPanel = null;
@@ -121,10 +168,31 @@ async function init() {
 
   setupCustomization();
 
+  function addSpriteAvatar(id, spriteUrl, startX, startY) {
+    const animator = new AvatarAnimator();
+    const avatarImg = new Image();
+    avatarImg.src = spriteUrl;
+    avatarImg.onload = () => {
+      const aspect = avatarImg.naturalWidth / avatarImg.naturalHeight;
+      animator.draw = (ctx, x, y) => {
+        const drawH = 75;
+        const drawW = drawH * aspect;
+        ctx.drawImage(avatarImg, 0, 0, avatarImg.naturalWidth, avatarImg.naturalHeight, x, y, drawW, drawH);
+      };
+      renderer.markDirty();
+    };
+    animator.draw = (ctx, x, y) => {
+      ctx.fillStyle = '#ccc';
+      ctx.fillRect(x, y, 28, 75);
+    };
+    const controller = new AvatarController(id);
+    controller.setPosition(startX, startY);
+    renderer.addAvatar(id, animator, controller);
+    return controller;
+  }
+
   function addPlaceholderAvatar(id, color, startX, startY) {
     const animator = new AvatarAnimator();
-    const w = AVATAR_SIZE.width * AVATAR_RENDER_SCALE;
-    const h = AVATAR_SIZE.height * AVATAR_RENDER_SCALE;
     animator.draw = (ctx, x, y, scale) => {
       const sw = AVATAR_SIZE.width * scale;
       const sh = AVATAR_SIZE.height * scale;
@@ -150,8 +218,8 @@ async function init() {
     return controller;
   }
 
-  const myAvatar = addPlaceholderAvatar('me', '#E8A0BF', 100, 280);
-  const partnerAvatar = addPlaceholderAvatar('partner', '#A0C4E8', 180, 280);
+  const myAvatar = addSpriteAvatar('me', spriteUrl('avatar-male.png'), 130, 310);
+  const partnerAvatar = addSpriteAvatar('partner', spriteUrl('avatar-female.png'), 175, 310);
 
   canvas.addEventListener('click', (e) => {
     const { x, y } = canvasCoords(e);

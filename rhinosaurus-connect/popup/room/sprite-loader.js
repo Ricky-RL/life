@@ -39,6 +39,18 @@ export class SpriteLoader {
     });
   }
 
+  async loadSprite(type, variant, url) {
+    const img = await this.loadSheet(`${type}:${variant}`, url);
+    this.register(type, variant, {
+      sheet: `${type}:${variant}`,
+      sx: 0,
+      sy: 0,
+      sw: img.naturalWidth,
+      sh: img.naturalHeight,
+    });
+    return img;
+  }
+
   getFrame(type, variant) {
     const def = this.getDefinition(type, variant);
     if (!def) return null;

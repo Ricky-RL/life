@@ -1,13 +1,24 @@
 const DEFAULT_FURNITURE = [
-  { id: 'bed-1', type: 'bed', variant: 'double-wood', color: '#FF6B9D', x: 40, y: 80, interactive: false },
-  { id: 'tv-1', type: 'tv', variant: 'crt', color: null, x: 240, y: 180, interactive: true, interaction: 'activity' },
-  { id: 'desk-1', type: 'desk', variant: 'wooden', color: null, x: 40, y: 220, interactive: true, interaction: 'chat' },
-  { id: 'calendar-1', type: 'calendar', variant: 'default', color: null, x: 270, y: 30, interactive: true, interaction: 'dates' },
-  { id: 'makeup-1', type: 'makeup_stand', variant: 'default', color: null, x: 240, y: 80, interactive: true, interaction: 'makeup' },
-  { id: 'window-1', type: 'window', variant: 'default', color: '#E8D5E0', x: 80, y: 20, interactive: false },
-  { id: 'rug-1', type: 'rug', variant: 'round', color: '#D4A5C9', x: 130, y: 160, interactive: false },
-  { id: 'nightstand-1', type: 'nightstand', variant: 'wooden', color: null, x: 10, y: 130, interactive: false },
-  { id: 'nightstand-2', type: 'nightstand', variant: 'wooden', color: null, x: 180, y: 130, interactive: false },
+  // Core furniture — cozy bedroom essentials
+  { id: 'bed-1', type: 'bed', variant: 'double-wood', x: 8, y: 46, renderWidth: 100, renderHeight: 100, interactive: false },
+  { id: 'window-1', type: 'window', variant: 'default', x: 56, y: 0, renderWidth: 72, renderHeight: 58, interactive: false },
+  { id: 'nightstand-1', type: 'nightstand', variant: 'wooden', x: 112, y: 86, renderWidth: 30, renderHeight: 50, interactive: false },
+  { id: 'tv-1', type: 'tv', variant: 'crt', x: 240, y: 100, renderWidth: 52, renderHeight: 48, interactive: true, interaction: 'activity' },
+  { id: 'desk-1', type: 'desk', variant: 'wooden', x: 8, y: 190, renderWidth: 68, renderHeight: 58, interactive: true, interaction: 'chat' },
+  { id: 'rug-1', type: 'rug', variant: 'round', x: 110, y: 220, renderWidth: 100, renderHeight: 50, interactive: false },
+  { id: 'bookshelf-1', type: 'bookshelf', variant: 'default', x: 270, y: 160, renderWidth: 44, renderHeight: 52, interactive: false },
+
+  // Wall decorations
+  { id: 'calendar-1', type: 'calendar', variant: 'default', x: 170, y: 8, renderWidth: 34, renderHeight: 38, interactive: true, interaction: 'dates' },
+  { id: 'poster-1', type: 'poster', variant: 'default', x: 220, y: 4, renderWidth: 26, renderHeight: 32, interactive: false },
+
+  // A few cozy touches — not too many
+  { id: 'plant-1', type: 'plant', variant: 'potted', x: 2, y: 155, renderWidth: 22, renderHeight: 30, interactive: false },
+  { id: 'flowers-1', type: 'flowers', variant: 'vase', x: 82, y: 182, renderWidth: 18, renderHeight: 28, interactive: false },
+  { id: 'pet-bed-1', type: 'misc', variant: 'pet_bed', x: 255, y: 60, renderWidth: 40, renderHeight: 28, interactive: false },
+
+  // Interactive
+  { id: 'makeup-1', type: 'makeup_stand', variant: 'default', x: 148, y: 100, renderWidth: 44, renderHeight: 50, interactive: true, interaction: 'makeup' },
 ];
 
 export class RoomState {

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Stardew Bedroom Test</title>
+  <style>
+    body {
+      margin: 0;
+      background: #1a1a2e;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: 'Courier New', monospace;
+      color: #e0d5c0;
+    }
+    h1 { color: #f0c060; font-size: 16px; margin-bottom: 10px; }
+    canvas {
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      border: 3px solid #5a4a2a;
+      box-shadow: 0 0 20px rgba(240,192,96,0.2);
+    }
+    p { font-size: 11px; color: #888; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Stardew Bedroom — Room Test</h1>
+  <canvas id="room-canvas" width="320" height="400" style="width: 640px; height: 800px;"></canvas>
+  <p>Sprites load from assets/sprites/. Open browser console for errors.</p>
+
+  <script type="module">
+    import { RoomRenderer } from './popup/room/room-renderer.js';
+    import { RoomState } from './popup/room/room-state.js';
+    import { SpriteLoader } from './popup/room/sprite-loader.js';
+    import { AvatarAnimator } from './popup/room/avatar-animator.js';
+    import { AvatarController } from './popup/room/avatar-controller.js';
+    import { AVATAR_SIZE } from './shared/constants.js';
+
+    const canvas = document.getElementById('room-canvas');
+    const roomState = new RoomState();
+    const renderer = new RoomRenderer(canvas, roomState);
+    const spriteLoader = new SpriteLoader();
+
+    const spriteManifest = [
+      ['bed', 'double-wood', 'bed-double-wood.png'],
+      ['tv', 'crt', 'tv-crt.png'],
+      ['desk', 'wooden', 'desk-wooden.png'],
+      ['calendar', 'default', 'calendar-default.png'],
+      ['makeup_stand', 'default', 'makeup-stand-default.png'],
+      ['window', 'default', 'window-default.png'],
+      ['nightstand', 'wooden', 'nightstand-wooden.png'],
+      ['nightstand', 'wooden-2', 'nightstand-wooden-2.png'],
+      ['rug', 'round', 'rug-round.png'],
+      ['bookshelf', 'default', 'bookshelf.png'],
+      ['plant', 'potted', 'plant-potted.png'],
+      ['plant', 'hanging', 'plant-hanging.png'],
+      ['plant', 'succulent', 'plant-succulent.png'],
+      ['photo_frame', 'default', 'photo-frame.png'],
+      ['misc', 'plushie', 'plushie.png'],
+      ['misc', 'candles', 'candles.png'],
+      ['misc', 'pet_bed', 'pet-bed.png'],
+      ['flowers', 'vase', 'flowers-vase.png'],
+      ['poster', 'default', 'poster.png'],
+      ['rug', 'rectangular', 'rug-rectangular.png'],
+      ['curtains', 'solid', 'curtains-solid.png'],
+      ['wall_shelf', 'default', 'wall-shelf.png'],
+      ['misc', 'books', 'book-stack.png'],
+      ['lamp', 'floor', 'floor-lamp.png'],
+    ];
+
+    async function init() {
+      let loaded = 0;
+      let failed = 0;
+
+      await Promise.all(
+        spriteManifest.map(([type, variant, file]) =>
+          spriteLoader.loadSprite(type, variant, `assets/sprites/${file}`)
+            .then(() => { loaded++; })
+            .catch((e) => {
+              failed++;
+              console.warn(`Failed to load: ${file}`, e);
+            })
+        )
+      );
+
+      console.log(`Sprites loaded: ${loaded}/${spriteManifest.length} (${failed} failed)`);
+      renderer.setSpriteLoader(spriteLoader);
+
+      // Add male avatar sprite
+      const avatarImg = new Image();
+      avatarImg.src = 'assets/sprites/avatar-male.png';
+      avatarImg.onload = () => {
+        const aspect = avatarImg.naturalWidth / avatarImg.naturalHeight;
+        const animator = new AvatarAnimator();
+        animator.draw = (ctx, x, y) => {
+          const drawH = 75;
+          const drawW = drawH * aspect;
+          ctx.drawImage(avatarImg, 0, 0, avatarImg.naturalWidth, avatarImg.naturalHeight, x, y, drawW, drawH);
+        };
+        const controller = new AvatarController('me');
+        controller.setPosition(130, 310);
+        renderer.addAvatar('me', animator, controller);
+        renderer.markDirty();
+      };
+
+      // Add female avatar sprite
+      const avatarImg2 = new Image();
+      avatarImg2.src = 'assets/sprites/avatar-female.png';
+      avatarImg2.onload = () => {
+        const aspect2 = avatarImg2.naturalWidth / avatarImg2.naturalHeight;
+        const animator2 = new AvatarAnimator();
+        animator2.draw = (ctx, x, y) => {
+          const drawH = 75;
+          const drawW = drawH * aspect2;
+          ctx.drawImage(avatarImg2, 0, 0, avatarImg2.naturalWidth, avatarImg2.naturalHeight, x, y, drawW, drawH);
+        };
+        const controller2 = new AvatarController('partner');
+        controller2.setPosition(175, 310);
+        renderer.addAvatar('partner', animator2, controller2);
+        renderer.markDirty();
+      };
+
+      renderer.startRenderLoop();
+    }
+
+    init();
+  </script>
+</body>
+</html>

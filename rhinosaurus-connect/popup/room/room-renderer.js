@@ -1,8 +1,6 @@
 import { ROOM_DIMENSIONS } from '../../shared/constants.js';
 import { SpeechBubbleQueue } from './speech-bubble.js';
 
-const DEFAULT_HITBOX_SIZE = { width: 48, height: 48 };
-
 export class RoomRenderer {
   constructor(canvas, roomState) {
     this.canvas = canvas;
@@ -33,23 +31,28 @@ export class RoomRenderer {
     return [...this.roomState.furniture].sort((a, b) => a.y - b.y);
   }
 
+  getItemSize(item) {
+    if (this.spriteLoader) {
+      const frame = this.spriteLoader.getFrame(item.type, item.variant || 'default');
+      if (frame) {
+        return { width: item.renderWidth || frame.sw, height: item.renderHeight || frame.sh };
+      }
+    }
+    return { width: item.renderWidth || 48, height: item.renderHeight || 48 };
+  }
+
   hitTest(clickX, clickY) {
     const interactives = this.roomState.furniture
       .filter(f => f.interactive)
       .sort((a, b) => b.y - a.y);
 
     for (const item of interactives) {
-      const hitbox = {
-        x: item.x,
-        y: item.y,
-        width: DEFAULT_HITBOX_SIZE.width,
-        height: DEFAULT_HITBOX_SIZE.height,
-      };
+      const size = this.getItemSize(item);
       if (
-        clickX >= hitbox.x &&
-        clickX <= hitbox.x + hitbox.width &&
-        clickY >= hitbox.y &&
-        clickY <= hitbox.y + hitbox.height
+        clickX >= item.x &&
+        clickX <= item.x + size.width &&
+        clickY >= item.y &&
+        clickY <= item.y + size.height
       ) {
         return item;
       }
@@ -60,17 +63,12 @@ export class RoomRenderer {
   hitTestAll(clickX, clickY) {
     const items = [...this.roomState.furniture].sort((a, b) => b.y - a.y);
     for (const item of items) {
-      const hitbox = {
-        x: item.x,
-        y: item.y,
-        width: DEFAULT_HITBOX_SIZE.width,
-        height: DEFAULT_HITBOX_SIZE.height,
-      };
+      const size = this.getItemSize(item);
       if (
-        clickX >= hitbox.x &&
-        clickX <= hitbox.x + hitbox.width &&
-        clickY >= hitbox.y &&
-        clickY <= hitbox.y + hitbox.height
+        clickX >= item.x &&
+        clickX <= item.x + size.width &&
+        clickY >= item.y &&
+        clickY <= item.y + size.height
       ) {
         return item;
       }
@@ -106,42 +104,104 @@ export class RoomRenderer {
   }
 
   drawFloor() {
-    this.ctx.fillStyle = '#8B7355';
-    this.ctx.fillRect(0, ROOM_DIMENSIONS.height * 0.15, ROOM_DIMENSIONS.width, ROOM_DIMENSIONS.height * 0.85);
+    const { width, height } = ROOM_DIMENSIONS;
+    const floorY = Math.floor(height * 0.15);
+    const floorH = height - floorY;
+    const ctx = this.ctx;
+
+    const plankColors = ['#B8894A', '#A67B3D', '#C49A5A'];
+    const lineColor = '#7A5520';
+    const grainColor = '#9A6B30';
+
+    for (let row = 0; row * 16 < floorH; row++) {
+      const y = floorY + row * 16;
+      const plankColor = plankColors[row % 3];
+      ctx.fillStyle = plankColor;
+      ctx.fillRect(0, y, width, 16);
+
+      ctx.fillStyle = lineColor;
+      ctx.fillRect(0, y, width, 1);
+
+      const offset = (row % 2 === 0) ? 0 : 20;
+      for (let x = offset; x < width; x += 40) {
+        ctx.fillRect(x, y, 1, 16);
+      }
+
+      for (let x = 3; x < width; x += 13) {
+        const gy = y + 5 + (x % 7);
+        if (gy < y + 15 && gy < height) {
+          ctx.fillStyle = grainColor;
+          ctx.fillRect(x, gy, 2, 1);
+        }
+      }
+    }
   }
 
   drawWalls() {
-    this.ctx.fillStyle = '#D4C5A9';
-    this.ctx.fillRect(0, 0, ROOM_DIMENSIONS.width, ROOM_DIMENSIONS.height * 0.15);
+    const { width, height } = ROOM_DIMENSIONS;
+    const wallH = Math.floor(height * 0.15);
+    const ctx = this.ctx;
+
+    ctx.fillStyle = '#C8D5C0';
+    ctx.fillRect(0, 0, width, wallH);
+
+    for (let x = 0; x < width; x += 8) {
+      ctx.fillStyle = '#B8C8B0';
+      ctx.fillRect(x, 0, 1, wallH - 4);
+      ctx.fillStyle = '#A8B8A0';
+      ctx.fillRect(x + 4, 0, 1, wallH - 4);
+    }
+
+    const panelTop = Math.floor(wallH * 0.55);
+    ctx.fillStyle = '#C4B68E';
+    ctx.fillRect(0, panelTop, width, wallH - panelTop - 4);
+    for (let x = 0; x < width; x += 40) {
+      ctx.fillStyle = '#B0A078';
+      ctx.fillRect(x, panelTop, 1, wallH - panelTop - 4);
+      ctx.fillStyle = '#D5C8A6';
+      ctx.fillRect(x + 1, panelTop, 1, wallH - panelTop - 4);
+    }
+
+    ctx.fillStyle = '#B0A078';
+    ctx.fillRect(0, panelTop, width, 1);
+    ctx.fillStyle = '#C49A5A';
+    ctx.fillRect(0, panelTop - 1, width, 1);
+
+    ctx.fillStyle = '#8B7D5C';
+    ctx.fillRect(0, wallH - 4, width, 4);
+    ctx.fillStyle = '#C49A5A';
+    ctx.fillRect(0, wallH - 5, width, 1);
   }
 
   drawFurnitureItem(item) {
-    if (item.type === 'window') {
-      this.drawWindow(item);
-    }
-
     const inEditMode = this.editModeController?.isEditMode;
+    const ctx = this.ctx;
 
     if (this.spriteLoader) {
       const frame = this.spriteLoader.getFrame(item.type, item.variant || 'default');
       if (frame) {
-        frame.draw(this.ctx, item.x, item.y);
-        if (inEditMode) this.drawEditOutline(item);
-        if (this.editModeController?.selectedId === item.id) this.drawSelectionHighlight(item);
-        else if (this.hoveredItem === item) this.drawHoverGlow(item);
+        const dw = item.renderWidth || frame.sw;
+        const dh = item.renderHeight || frame.sh;
+        frame.draw(ctx, item.x, item.y, dw, dh);
+        if (inEditMode) this.drawEditOutline(item, dw, dh);
+        if (this.editModeController?.selectedId === item.id) this.drawSelectionHighlight(item, dw, dh);
+        else if (this.hoveredItem === item) this.drawHoverGlow(item, dw, dh);
         return;
       }
     }
 
-    if (item.type === 'calendar') {
+    const size = this.getItemSize(item);
+    if (item.type === 'window') {
+      this.drawWindow(item);
+    } else if (item.type === 'calendar') {
       this.drawCalendarPlaceholder(item);
     } else {
-      this.ctx.fillStyle = item.color || '#A0522D';
-      this.ctx.fillRect(item.x, item.y, DEFAULT_HITBOX_SIZE.width, DEFAULT_HITBOX_SIZE.height);
+      ctx.fillStyle = item.color || '#A0522D';
+      ctx.fillRect(item.x, item.y, size.width, size.height);
     }
-    if (inEditMode) this.drawEditOutline(item);
-    if (this.editModeController?.selectedId === item.id) this.drawSelectionHighlight(item);
-    else if (this.hoveredItem === item) this.drawHoverGlow(item);
+    if (inEditMode) this.drawEditOutline(item, size.width, size.height);
+    if (this.editModeController?.selectedId === item.id) this.drawSelectionHighlight(item, size.width, size.height);
+    else if (this.hoveredItem === item) this.drawHoverGlow(item, size.width, size.height);
   }
 
   drawAvatar(avatar) {
@@ -151,28 +211,28 @@ export class RoomRenderer {
     bubbleQueue.draw(this.ctx);
   }
 
-  drawHoverGlow(item) {
+  drawHoverGlow(item, w, h) {
     this.ctx.save();
     this.ctx.strokeStyle = 'rgba(255, 215, 0, 0.6)';
     this.ctx.lineWidth = 2;
-    this.ctx.strokeRect(item.x - 1, item.y - 1, DEFAULT_HITBOX_SIZE.width + 2, DEFAULT_HITBOX_SIZE.height + 2);
+    this.ctx.strokeRect(item.x - 1, item.y - 1, (w || 48) + 2, (h || 48) + 2);
     this.ctx.restore();
   }
 
-  drawEditOutline(item) {
+  drawEditOutline(item, w, h) {
     this.ctx.save();
     this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
     this.ctx.lineWidth = 1;
     this.ctx.setLineDash([3, 3]);
-    this.ctx.strokeRect(item.x, item.y, DEFAULT_HITBOX_SIZE.width, DEFAULT_HITBOX_SIZE.height);
+    this.ctx.strokeRect(item.x, item.y, w || 48, h || 48);
     this.ctx.restore();
   }
 
-  drawSelectionHighlight(item) {
+  drawSelectionHighlight(item, w, h) {
     this.ctx.save();
     this.ctx.strokeStyle = 'rgba(100, 200, 255, 0.8)';
     this.ctx.lineWidth = 2;
-    this.ctx.strokeRect(item.x - 2, item.y - 2, DEFAULT_HITBOX_SIZE.width + 4, DEFAULT_HITBOX_SIZE.height + 4);
+    this.ctx.strokeRect(item.x - 2, item.y - 2, (w || 48) + 4, (h || 48) + 4);
     this.ctx.restore();
   }
 
