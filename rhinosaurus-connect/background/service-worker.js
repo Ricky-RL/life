@@ -58,7 +58,7 @@ async function handleMessage(message) {
 
     case 'GET_PAIR': {
       if (!currentSession) return { pair: null };
-      if (!currentPair) await loadPairData();
+      await loadPairData();
       return { pair: currentPair };
     }
 
