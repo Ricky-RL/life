@@ -45,6 +45,8 @@ async function init() {
       scheduleSave: () => {},
     });
 
+    renderer.editModeController = editMode;
+
     const panelContainer = document.createElement('div');
     panelContainer.id = 'customization-panel';
     document.getElementById('room-screen').appendChild(panelContainer);
