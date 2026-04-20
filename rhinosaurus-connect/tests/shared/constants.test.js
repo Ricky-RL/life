@@ -45,3 +45,13 @@ describe('constants', () => {
     expect(REALTIME_EVENTS.AVATAR_CONFIG_UPDATE).toBe('avatar_config_update');
   });
 });
+
+describe('REALTIME_EVENTS - Listen Together', () => {
+  it('exports LISTEN_TOGETHER_JOINED', () => {
+    expect(REALTIME_EVENTS.LISTEN_TOGETHER_JOINED).toBe('listen_together_joined');
+  });
+
+  it('exports LISTEN_TOGETHER_ENDED', () => {
+    expect(REALTIME_EVENTS.LISTEN_TOGETHER_ENDED).toBe('listen_together_ended');
+  });
+});
