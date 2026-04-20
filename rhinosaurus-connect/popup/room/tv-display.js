@@ -5,6 +5,9 @@ export class TVDisplay {
     this.history = [];
     this.staticFrame = 0;
     this.staticTimer = 0;
+    this.listenTogether = false;
+    this.listenTogetherSong = null;
+    this.listenTogetherArtist = null;
   }
 
   setPartnerState(state) {
@@ -24,6 +27,12 @@ export class TVDisplay {
     this.watchTogether = active;
     this.watchTogetherTitle = active ? title : null;
     this.watchTogetherVideoId = active ? videoId : null;
+  }
+
+  setListenTogether(active, song = null, artist = null) {
+    this.listenTogether = active;
+    this.listenTogetherSong = active ? song : null;
+    this.listenTogetherArtist = active ? artist : null;
   }
 
   /**
@@ -52,11 +61,13 @@ export class TVDisplay {
   }
 
   getDisplayState() {
+    if (this.listenTogether) return 'listen_together';
     if (this.watchTogether) return 'watch_together';
     if (this.partnerState.isYouTube) return 'youtube';
     if (!this.partnerState.isOnline) return 'offline';
     if (this.partnerState.trackingPaused) return 'tracking_paused';
     if (this.partnerState.idle) return 'idle';
+    if (this.partnerState.activity?.site === 'Spotify') return 'spotify';
     if (this.partnerState.activity?.site === 'YouTube') return 'youtube';
     if (this.partnerState.activity) return 'browsing';
     return 'offline';
@@ -96,6 +107,12 @@ export class TVDisplay {
         break;
       case 'watch_together':
         this.drawWatchTogether(ctx, centerX, centerY);
+        break;
+      case 'spotify':
+        this.drawSpotify(ctx, x, y, width, height);
+        break;
+      case 'listen_together':
+        this.drawListenTogether(ctx, centerX, centerY);
         break;
     }
 
@@ -169,6 +186,35 @@ export class TVDisplay {
     ctx.fillStyle = '#FFD700';
     ctx.font = '5px monospace';
     ctx.fillText('Watching', cx, cy - 4);
+    ctx.fillText('Together!', cx, cy + 4);
+  }
+
+  drawSpotify(ctx, x, y, width, height) {
+    ctx.fillStyle = '#1DB954';
+    ctx.fillRect(x + 2, y + 2, 8, 8);
+
+    ctx.fillStyle = '#e0e0e0';
+    ctx.font = '5px monospace';
+    ctx.textAlign = 'left';
+    const song = this.partnerState.activity?.spotifySong || '';
+    const truncSong = song.length > 12 ? song.substring(0, 12) + '..' : song;
+    ctx.fillText(truncSong, x + 12, y + 8);
+
+    ctx.fillStyle = '#aaa';
+    ctx.font = '4px monospace';
+    const artist = this.partnerState.activity?.spotifyArtist || '';
+    const truncArtist = artist.length > 15 ? artist.substring(0, 15) + '..' : artist;
+    ctx.fillText(truncArtist, x + 12, y + 16);
+
+    ctx.fillStyle = '#1DB954';
+    ctx.font = '4px monospace';
+    ctx.fillText('Listen', x + width - 18, y + height - 4);
+  }
+
+  drawListenTogether(ctx, cx, cy) {
+    ctx.fillStyle = '#1DB954';
+    ctx.font = '5px monospace';
+    ctx.fillText('Listening', cx, cy - 4);
     ctx.fillText('Together!', cx, cy + 4);
   }
 }
