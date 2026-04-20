@@ -325,7 +325,9 @@ async function init(sessionData) {
     }
 
     if (musicIndicator.hitTest(x, y) && musicIndicator.trackUrl) {
-      window.open(musicIndicator.trackUrl, '_blank');
+      if (musicIndicator.trackUrl.startsWith('https://open.spotify.com/')) {
+        window.open(musicIndicator.trackUrl, '_blank');
+      }
       return;
     }
 

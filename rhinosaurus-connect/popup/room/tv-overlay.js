@@ -85,11 +85,14 @@ export class TVOverlay {
       }
 
       if (this.tvDisplay.partnerState.activity?.spotifyTrackUrl) {
+        const trackUrl = this.tvDisplay.partnerState.activity.spotifyTrackUrl;
         const listenBtn = document.createElement('button');
         listenBtn.className = 'tv-overlay-join tv-overlay-listen';
         listenBtn.textContent = 'Listen Together';
         listenBtn.addEventListener('click', () => {
-          window.open(this.tvDisplay.partnerState.activity.spotifyTrackUrl, '_blank');
+          if (trackUrl.startsWith('https://open.spotify.com/')) {
+            window.open(trackUrl, '_blank');
+          }
           this.hide();
         });
         this.element.appendChild(listenBtn);

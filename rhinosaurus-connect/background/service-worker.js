@@ -161,11 +161,12 @@ function initTabTracker() {
 
   tabTracker.onSpotifyChange = (action, activity) => {
     if (action === 'entered' && activity) {
+      spotifyTrackUrl = null;
       const enriched = { ...activity };
-      if (spotifyTrackUrl) enriched.spotifyTrackUrl = spotifyTrackUrl;
       listenTogetherManager.setMyActivity(enriched);
       listenTogetherManager.check();
     } else {
+      spotifyTrackUrl = null;
       listenTogetherManager.setMyActivity(null);
       listenTogetherManager.check();
     }
