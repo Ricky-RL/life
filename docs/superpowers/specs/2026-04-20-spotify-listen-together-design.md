@@ -54,8 +54,8 @@ Add Spotify activity display and "Listen Together" functionality to Rhinosaurus 
 **ListenTogetherManager** (`background/listen-together.js`):
 - Mirrors the `WatchTogetherManager` pattern.
 - Tracks `myActivity` and `partnerActivity`.
-- `check()` compares `spotifyTrackUrl` from both users.
-- When both are on the same track URL: broadcasts `listen_together_joined` with track info.
+- `check()` compares `spotifyTrackUrl` from both users. URLs are normalized before comparison by extracting the `/track/<id>` path segment (stripping query params like `?si=...`).
+- When both are on the same track ID: broadcasts `listen_together_joined` with track info.
 - When one leaves Spotify or changes track: broadcasts `listen_together_ended`.
 - `getJoinUrl()` returns the partner's `spotifyTrackUrl` if they're on Spotify.
 
