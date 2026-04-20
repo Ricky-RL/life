@@ -5,6 +5,7 @@ import { NotificationManager } from './notification-manager.js';
 import { MessageQueue } from './message-queue.js';
 import { REALTIME_EVENTS } from '../shared/constants.js';
 import { getEventsChannelName } from '../shared/supabase-helpers.js';
+import { ListenTogetherManager } from './listen-together.js';
 
 const authManager = new AuthManager();
 const notificationManager = new NotificationManager();
@@ -15,6 +16,8 @@ let tabTracker = null;
 let eventsChannel = null;
 let channelReady = false;
 let partnerActivity = null;
+let listenTogetherManager = null;
+let spotifyTrackUrl = null;
 let popupOpen = false;
 let lastNotifiedAt = null;
 
@@ -70,6 +73,10 @@ function initTabTracker() {
       if (payload.user_id === currentSession?.user?.id) return;
       partnerActivity = payload.activity;
       sendToPopup({ type: 'PARTNER_ACTIVITY_UPDATE', activity: partnerActivity });
+      if (listenTogetherManager) {
+        listenTogetherManager.setPartnerActivity(partnerActivity);
+        listenTogetherManager.check();
+      }
     })
     .on('broadcast', { event: 'new_message' }, (msg) => {
       const payload = msg.payload;
@@ -99,6 +106,16 @@ function initTabTracker() {
       if (payload.user_id === currentSession?.user?.id) return;
       sendToPopup({ type: 'PARTNER_MOOD_UPDATE', data: { mood: payload.mood } });
     })
+    .on('broadcast', { event: 'listen_together_joined' }, (msg) => {
+      const payload = msg.payload;
+      if (payload.user_id === currentSession?.user?.id) return;
+      sendToPopup({ type: 'LISTEN_TOGETHER_JOINED', data: payload });
+    })
+    .on('broadcast', { event: 'listen_together_ended' }, (msg) => {
+      const payload = msg.payload;
+      if (payload.user_id === currentSession?.user?.id) return;
+      sendToPopup({ type: 'LISTEN_TOGETHER_ENDED', data: payload });
+    })
     .on('broadcast', { event: 'typing' }, (msg) => {
       const payload = msg.payload;
       if (payload.user_id === currentSession?.user?.id) return;
@@ -111,13 +128,17 @@ function initTabTracker() {
 
   tabTracker = new TabTracker((activity) => {
     if (eventsChannel) {
-      console.log('[SW] Broadcasting:', activity.site, activity.title);
+      const enrichedActivity = { ...activity };
+      if (spotifyTrackUrl && activity.site === 'Spotify') {
+        enrichedActivity.spotifyTrackUrl = spotifyTrackUrl;
+      }
+      console.log('[SW] Broadcasting:', enrichedActivity.site, enrichedActivity.title);
       eventsChannel.send({
         type: 'broadcast',
         event: REALTIME_EVENTS.ACTIVITY_UPDATE,
         payload: {
           user_id: currentSession?.user?.id,
-          activity,
+          activity: enrichedActivity,
         },
       });
     }
@@ -133,6 +154,20 @@ function initTabTracker() {
           target: action === 'entered' ? 'tv' : 'previous',
         },
       });
+    }
+  };
+
+  listenTogetherManager = new ListenTogetherManager(currentSession.user.id, eventsChannel);
+
+  tabTracker.onSpotifyChange = (action, activity) => {
+    if (action === 'entered' && activity) {
+      const enriched = { ...activity };
+      if (spotifyTrackUrl) enriched.spotifyTrackUrl = spotifyTrackUrl;
+      listenTogetherManager.setMyActivity(enriched);
+      listenTogetherManager.check();
+    } else {
+      listenTogetherManager.setMyActivity(null);
+      listenTogetherManager.check();
     }
   };
 
@@ -267,6 +302,8 @@ async function handleMessage(message) {
           eventsChannel = null;
         }
         tabTracker = null;
+        listenTogetherManager = null;
+        spotifyTrackUrl = null;
       }
       return { ok: true };
     }
@@ -428,6 +465,16 @@ async function handleMessage(message) {
           .from('users')
           .update({ is_online: false, last_seen_at: new Date().toISOString() })
           .eq('id', currentSession.user.id);
+      }
+      return { ok: true };
+    }
+
+    case 'SPOTIFY_TRACK_URL': {
+      spotifyTrackUrl = message.url;
+      if (listenTogetherManager && tabTracker?.localActivity) {
+        const enriched = { ...tabTracker.localActivity, spotifyTrackUrl: message.url };
+        listenTogetherManager.setMyActivity(enriched);
+        listenTogetherManager.check();
       }
       return { ok: true };
     }
