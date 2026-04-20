@@ -238,12 +238,16 @@ async function handleMessage(message) {
       let roomState = null;
       if (currentPair) {
         try {
-          const { data } = await supabase
+          const { data, error } = await supabase
             .from('room_state')
             .select('furniture, avatar_positions, theme')
             .eq('pair_id', currentPair.id)
             .single();
-          roomState = data;
+          if (error) {
+            console.warn('[SW] Supabase room load error:', error.message);
+          } else {
+            roomState = data;
+          }
         } catch (e) {
           console.warn('[SW] Failed to load room state:', e.message);
         }
@@ -366,12 +370,13 @@ async function handleMessage(message) {
     case 'MARK_READ': {
       if (!currentPair || !currentSession) return { ok: true };
       try {
-        await supabase
+        const { error } = await supabase
           .from('messages')
           .update({ is_read: true })
           .eq('pair_id', currentPair.id)
           .eq('is_read', false)
           .neq('sender_id', currentSession.user.id);
+        if (error) console.warn('[SW] Mark read error:', error.message);
       } catch (e) {
         console.warn('[SW] Mark read failed:', e.message);
       }
@@ -381,10 +386,14 @@ async function handleMessage(message) {
     case 'SET_MOOD': {
       if (!currentSession) return { error: 'Not logged in' };
       try {
-        await supabase
+        const { error } = await supabase
           .from('users')
           .update({ mood: message.mood })
           .eq('id', currentSession.user.id);
+        if (error) {
+          console.warn('[SW] Supabase mood update error:', error.message);
+          return { error: error.message };
+        }
       } catch (e) {
         console.warn('[SW] DB update failed for mood:', e.message);
       }
@@ -401,12 +410,18 @@ async function handleMessage(message) {
     }
 
     case 'SAVE_ROOM_STATE': {
+      if (!currentSession) currentSession = await restoreSession();
+      if (currentSession && !currentPair) await loadPairData();
       if (!currentPair) return { error: 'Not paired' };
       try {
-        await supabase
+        const { error } = await supabase
           .from('room_state')
           .update({ furniture: message.furniture, updated_at: new Date().toISOString() })
           .eq('pair_id', currentPair.id);
+        if (error) {
+          console.warn('[SW] Supabase room save error:', error.message);
+          return { error: error.message };
+        }
         if (eventsChannel) {
           eventsChannel.send({
             type: 'broadcast',
@@ -416,6 +431,7 @@ async function handleMessage(message) {
         }
       } catch (e) {
         console.warn('[SW] Failed to save room state:', e.message);
+        return { error: e.message };
       }
       return { ok: true };
     }
@@ -424,10 +440,11 @@ async function handleMessage(message) {
       popupOpen = false;
       lastNotifiedAt = new Date().toISOString();
       if (currentSession) {
-        await supabase
+        const { error } = await supabase
           .from('users')
           .update({ is_online: false, last_seen_at: new Date().toISOString() })
           .eq('id', currentSession.user.id);
+        if (error) console.warn('[SW] Supabase offline update error:', error.message);
       }
       return { ok: true };
     }

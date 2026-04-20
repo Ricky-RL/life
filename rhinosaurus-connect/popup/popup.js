@@ -49,6 +49,7 @@ let reactionHandler = null;
 let moodDropdown = null;
 let moodHandler = null;
 const moodBubbles = new Map();
+let pendingSave = null;
 
 async function setupCalendar(anniversaryDate) {
   dateService = new DateService();
@@ -188,14 +189,24 @@ async function init(sessionData) {
   }
 
   let saveTimer = null;
+  function flushSave() {
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      saveTimer = null;
+    }
+    chrome.runtime.sendMessage({
+      type: 'SAVE_ROOM_STATE',
+      furniture: roomState.furniture,
+    }).catch(() => {});
+  }
   function scheduleSave() {
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
-      chrome.runtime.sendMessage({
-        type: 'SAVE_ROOM_STATE',
-        furniture: roomState.furniture,
-      }).catch(() => {});
+      saveTimer = null;
+      pendingSave = null;
+      flushSave();
     }, 2000);
+    pendingSave = flushSave;
   }
 
   function setupCustomization() {
@@ -701,5 +712,9 @@ async function bootRoom() {
 boot();
 
 window.addEventListener('unload', () => {
+  if (pendingSave) {
+    pendingSave();
+    pendingSave = null;
+  }
   chrome.runtime.sendMessage({ type: 'POPUP_CLOSED' }).catch(() => {});
 });
