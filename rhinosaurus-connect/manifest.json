@@ -14,7 +14,8 @@
   ],
   "host_permissions": [
     "https://*.youtube.com/*",
-    "https://*.supabase.co/*"
+    "https://*.supabase.co/*",
+    "https://open.spotify.com/*"
   ],
   "background": {
     "service_worker": "background/service-worker.js",
@@ -33,6 +34,10 @@
       "matches": ["<all_urls>"],
       "js": ["content/content.js"],
       "css": ["content/corner-popup.css"]
+    },
+    {
+      "matches": ["https://open.spotify.com/*"],
+      "js": ["content/spotify-content.js"]
     }
   ],
   "options_page": "options/options.html",

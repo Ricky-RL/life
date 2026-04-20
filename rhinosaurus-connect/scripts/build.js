@@ -54,6 +54,7 @@ async function build() {
       resolve(ROOT, 'background/service-worker.js'),
       resolve(ROOT, 'popup/popup.js'),
       resolve(ROOT, 'content/content.js'),
+      resolve(ROOT, 'content/spotify-content.js'),
       resolve(ROOT, 'options/options.js'),
     ],
     format: 'iife',
