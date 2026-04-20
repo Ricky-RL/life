@@ -10,6 +10,8 @@ export class TabTracker {
     this.localActivity = null;
     this.debounceTimer = null;
     this.onYouTubeChange = null;
+    this.wasOnSpotify = false;
+    this.onSpotifyChange = null;
   }
 
   async init() {
@@ -90,12 +92,35 @@ export class TabTracker {
     }
   }
 
+  isSpotifyTrack(url) {
+    try {
+      const parsed = new URL(url);
+      return parsed.hostname === 'open.spotify.com';
+    } catch {
+      return false;
+    }
+  }
+
+  parseSpotifyTitle(title) {
+    if (!title) return null;
+    const idx = title.indexOf(' · ');
+    if (idx === -1) return null;
+    const song = title.substring(0, idx).trim();
+    const artist = title.substring(idx + 3).trim();
+    if (!song || !artist) return null;
+    return { song, artist };
+  }
+
   handleTabChange(tab) {
     if (this.shouldSkipTab(tab)) {
       if (this.wasOnYouTube) {
         this.wasOnYouTube = false;
         chrome.storage.local.set({ wasOnYouTube: false });
         if (this.onYouTubeChange) this.onYouTubeChange('left', null);
+      }
+      if (this.wasOnSpotify) {
+        this.wasOnSpotify = false;
+        if (this.onSpotifyChange) this.onSpotifyChange('left', null);
       }
       return;
     }
@@ -118,6 +143,15 @@ export class TabTracker {
     const isYT = this.isYouTubeVideo(tab.url);
     if (isYT) {
       activity.youtubeVideoId = this.getYouTubeVideoId(tab.url);
+    }
+
+    const isSpotify = this.isSpotifyTrack(tab.url);
+    if (isSpotify) {
+      const parsed = this.parseSpotifyTitle(tab.title);
+      if (parsed) {
+        activity.spotifySong = parsed.song;
+        activity.spotifyArtist = parsed.artist;
+      }
     }
 
     this.localActivity = { ...activity, url: tab.url };
@@ -148,6 +182,14 @@ export class TabTracker {
       this.wasOnYouTube = false;
       chrome.storage.local.set({ wasOnYouTube: false });
       if (this.onYouTubeChange) this.onYouTubeChange('left', null);
+    }
+
+    if (isSpotify && !this.wasOnSpotify) {
+      this.wasOnSpotify = true;
+      if (this.onSpotifyChange) this.onSpotifyChange('entered', this.localActivity);
+    } else if (!isSpotify && this.wasOnSpotify) {
+      this.wasOnSpotify = false;
+      if (this.onSpotifyChange) this.onSpotifyChange('left', null);
     }
   }
 
