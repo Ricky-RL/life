@@ -61,6 +61,67 @@ export class TVOverlay {
       this.element.appendChild(joinBtn);
     }
 
+    if (state === 'spotify') {
+      const activity = this.tvDisplay.partnerState.activity;
+      if (activity) {
+        const spotifySection = document.createElement('div');
+        spotifySection.className = 'tv-overlay-spotify';
+
+        if (activity.spotifySong) {
+          const songEl = document.createElement('div');
+          songEl.className = 'tv-overlay-spotify-song';
+          songEl.textContent = activity.spotifySong;
+          spotifySection.appendChild(songEl);
+        }
+
+        if (activity.spotifyArtist) {
+          const artistEl = document.createElement('div');
+          artistEl.className = 'tv-overlay-spotify-artist';
+          artistEl.textContent = activity.spotifyArtist;
+          spotifySection.appendChild(artistEl);
+        }
+
+        this.element.appendChild(spotifySection);
+      }
+
+      if (this.tvDisplay.partnerState.activity?.spotifyTrackUrl) {
+        const listenBtn = document.createElement('button');
+        listenBtn.className = 'tv-overlay-join tv-overlay-listen';
+        listenBtn.textContent = 'Listen Together';
+        listenBtn.addEventListener('click', () => {
+          window.open(this.tvDisplay.partnerState.activity.spotifyTrackUrl, '_blank');
+          this.hide();
+        });
+        this.element.appendChild(listenBtn);
+      }
+    }
+
+    if (state === 'listen_together') {
+      const ltSection = document.createElement('div');
+      ltSection.className = 'tv-overlay-listen-together';
+
+      const badge = document.createElement('div');
+      badge.className = 'tv-overlay-lt-badge';
+      badge.textContent = 'Listening Together!';
+      ltSection.appendChild(badge);
+
+      if (this.tvDisplay.listenTogetherSong) {
+        const songEl = document.createElement('div');
+        songEl.className = 'tv-overlay-spotify-song';
+        songEl.textContent = this.tvDisplay.listenTogetherSong;
+        ltSection.appendChild(songEl);
+      }
+
+      if (this.tvDisplay.listenTogetherArtist) {
+        const artistEl = document.createElement('div');
+        artistEl.className = 'tv-overlay-spotify-artist';
+        artistEl.textContent = this.tvDisplay.listenTogetherArtist;
+        ltSection.appendChild(artistEl);
+      }
+
+      this.element.appendChild(ltSection);
+    }
+
     if (this.tvDisplay.history.length > 0) {
       const historySection = document.createElement('div');
       historySection.className = 'tv-overlay-history';
