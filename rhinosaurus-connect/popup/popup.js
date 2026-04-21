@@ -14,6 +14,7 @@ import { TVDisplay } from './room/tv-display.js';
 import { TVOverlay } from './room/tv-overlay.js';
 import { ChatOverlay } from './chat/chat-overlay.js';
 import { PhoneGlow } from './room/phone-glow.js';
+import { MusicIndicator } from './room/music-indicator.js';
 import { ReactionHandler } from './room/reaction-handler.js';
 import { ReactionParticleSystem } from './room/reaction-particles.js';
 import { MoodDropdown } from './mood/mood-dropdown.js';
@@ -42,6 +43,7 @@ let tvDisplay = null;
 let tvOverlay = null;
 const soundManager = new SoundManager();
 const phoneGlow = new PhoneGlow();
+const musicIndicator = new MusicIndicator();
 const particleSystem = new ReactionParticleSystem();
 let chatOverlay = null;
 let messageService = null;
@@ -175,6 +177,12 @@ async function init(sessionData) {
   chrome.runtime.onMessage.addListener((message) => {
     if (message.type === 'PARTNER_ACTIVITY_UPDATE') {
       applyActivity(message.activity);
+      if (message.activity?.site === 'Spotify' && message.activity?.spotifyTrackUrl) {
+        musicIndicator.setActive(true, message.activity.spotifyTrackUrl);
+      } else {
+        musicIndicator.setActive(false);
+      }
+      renderer.markDirty();
     }
   });
 
@@ -327,6 +335,13 @@ async function init(sessionData) {
       return;
     }
 
+    if (musicIndicator.hitTest(x, y) && musicIndicator.trackUrl) {
+      if (musicIndicator.trackUrl.startsWith('https://open.spotify.com/')) {
+        window.open(musicIndicator.trackUrl, '_blank');
+      }
+      return;
+    }
+
     const hit = renderer.hitTest(x, y);
     if (hit) {
       handleInteraction(hit);
@@ -467,6 +482,16 @@ async function init(sessionData) {
 
   renderer.addEffect({
     draw(ctx) {
+      const partnerAvatarData = renderer.avatars.get('partner');
+      if (partnerAvatarData) {
+        musicIndicator.draw(ctx, partnerAvatarData.controller.x, partnerAvatarData.controller.y, performance.now());
+        if (musicIndicator.active) renderer.markDirty();
+      }
+    },
+  });
+
+  renderer.addEffect({
+    draw(ctx) {
       for (const [userId, bubble] of moodBubbles) {
         const avatar = renderer.avatars.get(userId);
         if (avatar) {
@@ -564,6 +589,19 @@ function setupChat(renderer, userId) {
       }
       bubble.setMood(mood);
       renderer.markDirty();
+    }
+    if (message.type === 'LISTEN_TOGETHER_JOINED') {
+      const { spotifySong, spotifyArtist } = message.data;
+      if (tvDisplay) {
+        tvDisplay.setListenTogether(true, spotifySong, spotifyArtist);
+        renderer.markDirty();
+      }
+    }
+    if (message.type === 'LISTEN_TOGETHER_ENDED') {
+      if (tvDisplay) {
+        tvDisplay.setListenTogether(false);
+        renderer.markDirty();
+      }
     }
   });
 }

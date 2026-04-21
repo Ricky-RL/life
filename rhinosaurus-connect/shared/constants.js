@@ -39,6 +39,8 @@ export const REALTIME_EVENTS = {
   WATCH_TOGETHER_INVITE: 'watch_together_invite',
   WATCH_TOGETHER_JOINED: 'watch_together_joined',
   WATCH_TOGETHER_ENDED: 'watch_together_ended',
+  LISTEN_TOGETHER_JOINED: 'listen_together_joined',
+  LISTEN_TOGETHER_ENDED: 'listen_together_ended',
   MOOD_UPDATE: 'mood_update',
   TYPING: 'typing',
   AVATAR_CONFIG_UPDATE: 'avatar_config_update',
